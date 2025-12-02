@@ -1,6 +1,6 @@
 {
   "name": "@preeternal/react-native-cookie-manager",
-  "version": "0.1.0",
+  "version": "6.3.0",
   "description": "A modern, New Architecture–ready Cookie Manager for React Native.A drop-in replacement for @react-native-cookies/cookies, fully rewritten with TypeScript, TurboModules, and platform-native implementations for iOS and Android. Supports reading, writing, and clearing cookies with a clean and predictable API.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
