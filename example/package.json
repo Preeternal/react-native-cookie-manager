@@ -1,6 +1,6 @@
 {
   "name": "@preeternal/react-native-cookie-manager-example",
-  "version": "0.0.1",
+  "version": "6.3.0",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
