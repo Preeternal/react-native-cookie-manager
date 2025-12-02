@@ -1,14 +1,12 @@
 #import "CookieManager.h"
 
-// Universal include for framework/static builds
+// Universal include for framework/static builds; require generated Swift header
 #if __has_include(<CookieManager/CookieManager-Swift.h>)
 #import <CookieManager/CookieManager-Swift.h>
 #elif __has_include("CookieManager-Swift.h")
 #import "CookieManager-Swift.h"
 #else
-#warning "CookieManager-Swift.h not found at build time"
-@class CookieManagerImpl;
-#import "CookieManager-Swift.h"
+#error "CookieManager-Swift.h not found; ensure Swift header is generated and exposed by CocoaPods"
 #endif
 
 @interface CookieManager ()
