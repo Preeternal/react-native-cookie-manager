@@ -6,11 +6,21 @@ A modern, New Architecture–ready Cookie Manager for React Native. This is a dr
 
 ## Installation
 
-```sh
+### Using Bun
+
+```bash
 bun add @preeternal/react-native-cookie-manager
-# or
+```
+
+### Using yarn
+
+```bash
 yarn add @preeternal/react-native-cookie-manager
-# or
+```
+
+### Using npm
+
+```bash
 npm install @preeternal/react-native-cookie-manager
 ```
 
