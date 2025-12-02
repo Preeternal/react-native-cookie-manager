@@ -1,200 +1,117 @@
-# React Native Cookies - A Cookie Manager for React Native
+# @preeternal/react-native-cookie-manager
+[![npm version](https://img.shields.io/npm/v/@preeternal/react-native-cookie-manager.svg)](https://www.npmjs.com/package/@preeternal/react-native-cookie-manager)
+[![npm downloads](https://img.shields.io/npm/dm/@preeternal/react-native-cookie-manager.svg)](https://www.npmjs.com/package/@preeternal/react-native-cookie-manager)
 
-Cookie Manager for React Native
-
-<a href="https://discord.gg/CJHKVeW6sp">
-<img src="https://img.shields.io/discord/764994995098615828?label=Discord&logo=Discord&style=for-the-badge"
-            alt="chat on Discord"></a>
-
-This module was ported from [joeferraro/react-native-cookies](https://github.com/joeferraro/react-native-cookies). This would not exist without the work of the original author, [Joe Ferraro](https://github.com/joeferraro).
-
-## Important notices & Breaking Changes
-- **v6.0.0**: Package name updated to `@react-native-cookies/cookies`.
-- **v5.0.0**: Peer Dependency of >= React Native 0.60.2
-- **v4.0.0**: Android SDK version bumpted to 21
-- **v3.0.0**: Remove React Native Core dependencies, CookieManager.set() support for Android
-- **v2.0.0**: Package name updated to `@react-native-community/cookies`.
-
-## Maintainers
-
-- [Jason Safaiyeh](https://github.com/safaiyeh) ([Twitter @safaiyeh](https://twitter.com/safaiyeh)) from [🪄 Magic Eden](https://magiceden.io)
-
-## Platforms Supported
-
-- ✅ iOS
-- ✅ Android
-- ❌ Currently lacking support for Windows, macOS, and web. Support for these platforms will be created when there is a need for them. Starts with a posted issue.
-
-## Expo
-
-- ✅ You can use this library with [Development Builds](https://docs.expo.dev/development/introduction/). No config plugin is required.
-- ❌ This library can't be used in the "Expo Go" app because it [requires custom native code](https://docs.expo.dev/workflow/customizing/).
+A modern, New Architecture–ready Cookie Manager for React Native. This is a drop-in replacement for @react-native-cookies/cookies, rewritten with TypeScript, TurboModules, and platform-native implementations for iOS (Swift) and Android (Kotlin).
 
 ## Installation
 
-```
-yarn add @react-native-cookies/cookies
+```sh
+bun add @preeternal/react-native-cookie-manager
+# or
+yarn add @preeternal/react-native-cookie-manager
+# or
+npm install @preeternal/react-native-cookie-manager
 ```
 
-Then link the native iOS package
+Then install iOS pods:
 
+```sh
+cd ios && bundle exec pod install
 ```
-npx pod-install
-```
+
+Supports both old (bridged) and New Architecture (TurboModule) builds out of the box. Works in bare RN apps and in Expo Dev Builds (custom native build).
 
 ## Usage
 
-A cookie object can have one of the following fields:
+```ts
+import CookieManager from '@preeternal/react-native-cookie-manager';
 
-```typescript
-export interface Cookie {
+// Set a cookie
+try {
+  await CookieManager.set('https://example.com', {
+    name: 'session',
+    value: 'abc123',
+    domain: 'example.com',
+    path: '/',
+    secure: true,
+    httpOnly: true,
+  });
+
+  // Set cookies from a Set-Cookie header
+  await CookieManager.setFromResponse(
+    'https://example.com',
+    'user_session=abcdefg; path=/; expires=Thu, 1 Jan 2030 00:00:00 -0000; secure; HttpOnly'
+  );
+
+  // Get cookies for a URL
+  const cookies = await CookieManager.get('https://example.com');
+
+  // iOS only: get all cookies
+  const allCookies = await CookieManager.getAll();
+
+  // Clear by name (iOS only)
+  await CookieManager.clearByName('https://example.com', 'session');
+
+  // Clear everything
+  await CookieManager.clearAll();
+
+  // Android only: persist to storage
+  await CookieManager.flush();
+
+  // Android only: remove session cookies (no expires)
+  await CookieManager.removeSessionCookies();
+} catch (err) {
+  console.warn('Cookie operation failed', err);
+}
+```
+
+## API (compatible with @react-native-cookies/cookies)
+
+- `set(url, cookie, useWebKit?)`
+- `setFromResponse(url, cookieHeader)`
+- `get(url, useWebKit?)`
+- `getFromResponse(url)`
+- `clearAll(useWebKit?)`
+- `flush()` — Android
+- `removeSessionCookies()` — Android
+- `getAll(useWebKit?)` — iOS
+- `clearByName(url, name, useWebKit?)` — iOS
+
+`useWebKit` applies only to iOS (switches to `WKHTTPCookieStore`); on Android it is ignored because WebView and native share a single cookie store.
+
+### WebKit on iOS
+
+- iOS has two stores: `NSHTTPCookieStorage` (used by URLSession) and `WKHTTPCookieStore` (used by WKWebView / `react-native-webview`).
+- Pass `useWebKit: true` when you need cookies to sync with WKWebView. For network-only flows, omit it to use `NSHTTPCookieStorage`.
+- If your app mixes both (native requests and embedded web), call the same operation twice: once with `useWebKit: true` (for WKWebView), once with `useWebKit: false` (for URLSession).
+- On Android the flag is ignored; WebView and native use the same store.
+
+### Cookie shape
+
+```ts
+type Cookie = {
   name: string;
   value: string;
   path?: string;
   domain?: string;
   version?: string;
-  expires?: string;
+  expires?: string; // ISO 8601 string, e.g. 2015-05-30T12:30:00.00-05:00
   secure?: boolean;
   httpOnly?: boolean;
-}
-
-export interface Cookies {
-  [key: string]: Cookie;
-}
-```
-
-```javascript
-import CookieManager from '@react-native-cookies/cookies';
-
-// set a cookie
-CookieManager.set('http://example.com', {
-  name: 'myCookie',
-  value: 'myValue',
-  domain: 'some domain',
-  path: '/',
-  version: '1',
-  expires: '2015-05-30T12:30:00.00-05:00'
-}).then((done) => {
-  console.log('CookieManager.set =>', done);
-});
-
-*NB:* When no `domain` is specified, url host will be used instead.
-*NB:* When no `path` is specified, an empty path `/` will be assumed.
-
-// Set cookies from a response header
-// This allows you to put the full string provided by a server's Set-Cookie
-// response header directly into the cookie store.
-CookieManager.setFromResponse(
-  'http://example.com',
-  'user_session=abcdefg; path=/; expires=Thu, 1 Jan 2030 00:00:00 -0000; secure; HttpOnly')
-    .then((success) => {
-      console.log('CookieManager.setFromResponse =>', success);
-    });
-
-// Get cookies for a url
-CookieManager.get('http://example.com')
-  .then((cookies) => {
-    console.log('CookieManager.get =>', cookies);
-  });
-
-// list cookies (IOS ONLY)
-CookieManager.getAll()
-  .then((cookies) => {
-    console.log('CookieManager.getAll =>', cookies);
-  });
-
-// clear cookies
-CookieManager.clearAll()
-  .then((success) => {
-    console.log('CookieManager.clearAll =>', success);
-  });
-
-// clear a specific cookie by its name (IOS ONLY)
-CookieManager.clearByName('http://example.com', 'cookie_name')
-  .then((success) => {
-    console.log('CookieManager.clearByName =>', success);
-  });
-
-// flush cookies (ANDROID ONLY)
-CookieManager.flush()
-  .then((success) => {
-    console.log('CookieManager.flush =>', success);
-  });
-
-// Remove session cookies (ANDROID ONLY)
-// Session cookies are cookies with no expires set. Android typically does not
-// remove these, it is up to the developer to decide when to remove them.
-// The return value is true if any session cookies were removed.
-// iOS handles removal of session cookies automatically on app open.
-CookieManager.removeSessionCookies()
-  .then((sessionCookiesRemoved) => {
-    console.log('CookieManager.removeSessionCookies =>', sessionCookiesRemoved);
-  });
-```
-
-### WebKit-Support (iOS only)
-
-React Native comes with a WebView component, which uses UIWebView on iOS. Introduced in iOS 8 Apple implemented the WebKit-Support with all the performance boost.
-
-Prior to WebKit-Support, cookies would have been stored in `NSHTTPCookieStorage` and sharedCookiesEnabled must be set on webviews to ensure access to them.
-
-With WebKit-Support, cookies are stored in a separate webview store `WKHTTPCookieStore` and not necessarily shared with other http requests. Caveat is that this store is available upon mounting the component but not necessarily prior so any attempts to set a cookie too early may result in a false positive.
-
-To use WebKit-Support, you should be able to simply make advantage of the react-native-webview as is OR alternatively use the webview component like [react-native-wkwebview](https://github.com/CRAlpha/react-native-wkwebview).
-
-To use this _CookieManager_ with WebKit-Support we extended the interface with the attribute `useWebKit` (a boolean value, default: `FALSE`) for the following methods:
-
-| Method      | WebKit-Support | Method-Signature                                                         |
-| ----------- | -------------- | ------------------------------------------------------------------------ |
-| getAll      | Yes            | `CookieManager.getAll(useWebKit:boolean)`                                |
-| clearAll    | Yes            | `CookieManager.clearAll(useWebKit:boolean)`                              |
-| clearByName | Yes            | `CookieManager.clearByName(url:string, name: string, useWebKit:boolean)` |
-| get         | Yes            | `CookieManager.get(url:string, useWebKit:boolean)`                       |
-| set         | Yes            | `CookieManager.set(url:string, cookie:object, useWebKit:boolean)`        |
-
-##### Usage
-
-```javascript
-import CookieManager from '@react-native-cookies/cookies';
-
-const useWebKit = true;
-
-// list cookies (IOS ONLY)
-CookieManager.getAll(useWebKit)
-	.then((cookies) => {
-		console.log('CookieManager.getAll from webkit-view =>', cookies);
-	});
-
-// clear cookies
-CookieManager.clearAll(useWebKit)
-	.then((succcess) => {
-		console.log('CookieManager.clearAll from webkit-view =>', succcess);
-	});
-
-// clear cookies with name (IOS ONLY)
-CookieManager.clearByName('http://example.com', 'cookie name', useWebKit)
-	.then((succcess) => {
-		console.log('CookieManager.clearByName from webkit-view =>', succcess);
-  });
-
-// Get cookies as a request header string
-CookieManager.get('http://example.com', useWebKit)
-	.then((cookies) => {
-		console.log('CookieManager.get from webkit-view =>', cookies);
-	});
-
-// set a cookie
-const newCookie: = {
-	name: 'myCookie',
-	value: 'myValue',
-	domain: 'some domain',
-	path: '/',
-	version: '1',
-	expires: '2015-05-30T12:30:00.00-05:00'
 };
-
-CookieManager.set('http://example.com', newCookie, useWebKit)
-	.then((res) => {
-		console.log('CookieManager.set from webkit-view =>', res);
-	});
 ```
+
+## Contributing
+
+- [Development workflow](CONTRIBUTING.md#development-workflow)
+- [Sending a pull request](CONTRIBUTING.md#sending-a-pull-request)
+- [Code of conduct](CODE_OF_CONDUCT.md)
+
+## License
+
+MIT
+
+---
+
+Made with [create-react-native-library](https://github.com/callstack/react-native-builder-bob)
