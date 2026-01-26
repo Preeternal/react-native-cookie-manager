@@ -1,6 +1,6 @@
 PODS:
   - boost (1.84.0)
-  - CookieManager (0.1.0):
+  - CookieManager (6.3.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2513,7 +2513,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
-  CookieManager: 2b3b3474409681bf43e0a4bd39169d96ef4dc596
+  CookieManager: 2269f410c4f6e0958ed2e9ae84ef032da4c2d43c
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   fast_float: b32c788ed9c6a8c584d114d0047beda9664e7cc6
   FBLazyVector: b8f1312d48447cca7b4abc21ed155db14742bd03
