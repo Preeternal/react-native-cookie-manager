@@ -4,6 +4,10 @@
 
 A modern, New Architecture–ready Cookie Manager for React Native. This is a drop-in replacement for @react-native-cookies/cookies, rewritten with TypeScript, TurboModules, and platform-native implementations for iOS (Swift) and Android (Kotlin).
 
+## Upstream / credits
+
+This package is based on the public API and behavior of [`@react-native-cookies/cookies`](https://github.com/react-native-cookies/cookies). Big thanks to the upstream maintainers and contributors for the original implementation and long-term work on the project.
+
 ## Installation
 
 ### Using Bun
