@@ -133,6 +133,12 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      - name: Run Swift domain tests
+        run: |
+          CLANG_MODULE_CACHE_PATH="$RUNNER_TEMP/clang-module-cache" \
+          SWIFT_MODULECACHE_PATH="$RUNNER_TEMP/swift-module-cache" \
+          swift test
+
       - name: Cache turborepo for iOS
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:

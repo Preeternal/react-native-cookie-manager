@@ -1,75 +1,185 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Button,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import CookieManager, {
   type Cookie,
 } from '@preeternal/react-native-cookie-manager';
 
-const DEMO_URL = 'https://example.com';
-const demoCookie: Cookie = {
-  name: 'demo',
-  value: '42',
-  domain: 'example.com',
-  path: '/',
-  secure: true,
+const DEFAULT_DOMAIN = '.example.com';
+
+const normalizeDomainInput = (value: string): string => value.trim();
+
+const buildUrlForDomain = (domain: string): string => {
+  const normalized = domain.startsWith('.') ? domain.slice(1) : domain;
+  const host = domain.startsWith('.') ? `app.${normalized}` : normalized;
+  return `https://${host}`;
 };
 
 export default function App() {
+  const [domainInput, setDomainInput] = useState<string>(DEFAULT_DOMAIN);
   const [output, setOutput] = useState<string>('{}');
+  const [status, setStatus] = useState<string>('Ready');
+  const [cookieIndex, setCookieIndex] = useState<number>(1);
 
-  const refreshCookies = useCallback(async () => {
+  const inspectUrl = useMemo(() => {
+    const normalizedDomain = normalizeDomainInput(domainInput);
+    const domain = normalizedDomain || DEFAULT_DOMAIN;
+    return buildUrlForDomain(domain);
+  }, [domainInput]);
+
+  const refreshCookies = useCallback(async (urlToInspect: string) => {
+    const snapshot: Record<string, unknown> = {
+      inspectUrl: urlToInspect,
+    };
+    const errors: Record<string, string> = {};
+
     try {
-      const cookies = await CookieManager.get(DEMO_URL);
-      console.log('Cookies for', DEMO_URL, cookies);
-      setOutput(JSON.stringify(cookies, null, 2));
+      snapshot.sharedForUrl = await CookieManager.get(urlToInspect, false);
     } catch (error) {
-      console.error('Failed to fetch cookies:', error);
-      setOutput(`Error: ${error}`);
+      errors.sharedForUrl = String(error);
     }
+
+    try {
+      snapshot.webKitForUrl = await CookieManager.get(urlToInspect, true);
+    } catch (error) {
+      errors.webKitForUrl = String(error);
+    }
+
+    try {
+      snapshot.allShared = await CookieManager.getAll(false);
+    } catch (error) {
+      errors.allShared = String(error);
+    }
+
+    try {
+      snapshot.allWebKit = await CookieManager.getAll(true);
+    } catch (error) {
+      errors.allWebKit = String(error);
+    }
+
+    setOutput(JSON.stringify({ ...snapshot, errors }, null, 2));
   }, []);
 
-  const setCookie = useCallback(async () => {
-    try {
-      await CookieManager.set(DEMO_URL, demoCookie);
-      refreshCookies();
-    } catch (error) {
-      console.error('Failed to set cookie:', error);
+  const addCookieForDomain = useCallback(async () => {
+    const normalizedDomain = normalizeDomainInput(domainInput);
+    if (!normalizedDomain) {
+      setStatus('Enter a domain, e.g. .example.com');
+      return;
     }
-  }, [refreshCookies]);
+
+    const targetUrl = buildUrlForDomain(normalizedDomain);
+    const cookieName = `manual_${cookieIndex}`;
+    const cookie: Cookie = {
+      name: cookieName,
+      value: `value_${cookieIndex}`,
+      domain: normalizedDomain,
+      path: '/',
+      secure: true,
+    };
+
+    setStatus(`Adding ${cookieName} for ${normalizedDomain}`);
+
+    const results = await Promise.allSettled([
+      CookieManager.set(targetUrl, cookie, false),
+      CookieManager.set(targetUrl, cookie, true),
+    ]);
+
+    const rejected = results.filter((result) => result.status === 'rejected');
+    if (rejected.length > 0) {
+      setStatus(
+        `${cookieName} added partially (${rejected.length} errors, see errors field)`
+      );
+    } else {
+      setStatus(`${cookieName} added`);
+    }
+
+    setCookieIndex((prev) => prev + 1);
+    await refreshCookies(targetUrl);
+  }, [cookieIndex, domainInput, refreshCookies]);
 
   const clearCookies = useCallback(async () => {
-    try {
-      await CookieManager.clearAll(false);
-      refreshCookies();
-    } catch (error) {
-      console.error('Failed to clear cookies:', error);
+    setStatus('Clearing cookies');
+
+    const results = await Promise.allSettled([
+      CookieManager.clearAll(false),
+      CookieManager.clearAll(true),
+    ]);
+
+    const rejected = results.filter((result) => result.status === 'rejected');
+    if (rejected.length > 0) {
+      setStatus(`Clear finished with errors (${rejected.length})`);
+    } else {
+      setStatus('All cookies cleared');
     }
-  }, [refreshCookies]);
+
+    await refreshCookies(inspectUrl);
+  }, [inspectUrl, refreshCookies]);
+
+  const handleAddCookiePress = useCallback(() => {
+    addCookieForDomain().catch((error) => {
+      setStatus(`Failed to add cookie: ${String(error)}`);
+    });
+  }, [addCookieForDomain]);
+
+  const handleRefreshPress = useCallback(() => {
+    refreshCookies(inspectUrl).catch((error) => {
+      setStatus(`Refresh failed: ${String(error)}`);
+    });
+  }, [inspectUrl, refreshCookies]);
 
   useEffect(() => {
-    refreshCookies();
-  }, [refreshCookies]);
+    handleRefreshPress();
+  }, [handleRefreshPress]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>@preeternal/react-native-cookie-manager</Text>
-      <View style={styles.actions}>
-        <Button title="Set cookie" onPress={setCookie} />
-        <Button title="Clear all" onPress={clearCookies} />
-        <Button title="Refresh" onPress={refreshCookies} />
-      </View>
-      <Text style={styles.subtitle}>Stored cookies for {DEMO_URL}:</Text>
-      <View style={styles.output}>
-        <Text style={styles.mono}>{output}</Text>
-      </View>
-    </ScrollView>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>
+          @preeternal/react-native-cookie-manager
+        </Text>
+        <Text style={styles.subtitle}>
+          Cookie domain (you can include a leading dot):
+        </Text>
+        <TextInput
+          value={domainInput}
+          onChangeText={setDomainInput}
+          style={styles.input}
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder=".example.com"
+          returnKeyType="done"
+          onSubmitEditing={handleAddCookiePress}
+        />
+        <View style={styles.actions}>
+          <Button title="Add cookie" onPress={handleAddCookiePress} />
+          <Button title="Clear all" onPress={clearCookies} />
+          <Button title="Refresh" onPress={handleRefreshPress} />
+        </View>
+        <Text style={styles.status}>{status}</Text>
+        <Text style={styles.subtitle}>Current inspect URL: {inspectUrl}</Text>
+        <View style={styles.output}>
+          <Text style={styles.mono}>{output}</Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     padding: 24,
     gap: 16,
   },
@@ -84,8 +194,24 @@ const styles = StyleSheet.create({
   actions: {
     width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
+  },
+  input: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#d0d0d0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  status: {
+    width: '100%',
+    color: '#333',
   },
   output: {
     width: '100%',

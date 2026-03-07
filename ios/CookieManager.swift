@@ -128,7 +128,8 @@ public class CookieManagerImpl: NSObject {
       DispatchQueue.main.async {
         WKWebsiteDataStore.default().httpCookieStore.getAllCookies { allCookies in
           var cookies: [String: Any] = [:]
-          for cookie in allCookies where topLevelDomain.contains(cookie.domain) || cookie.domain == topLevelDomain {
+          for cookie in allCookies
+            where self.isMatchingDomain(originDomain: topLevelDomain, cookieDomain: cookie.domain) {
             cookies[cookie.name] = self.createCookieData(cookie)
           }
           resolve(cookies)
@@ -302,21 +303,18 @@ public class CookieManagerImpl: NSObject {
     }
 
     let path = (props["path"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "/"
-    var domain = props["domain"] as? String
+    var domain = CookieDomainLogic.normalizedInputDomain(props["domain"] as? String)
     let version = props["version"] as? String
     let expires = props["expires"] as? String
     let secure = props["secure"] as? Bool ?? false
     let httpOnly = props["httpOnly"] as? Bool ?? false
 
-    if var domainValue = domain {
-      if domainValue.hasPrefix(".") {
-        domainValue = String(domainValue.dropFirst())
-      }
-      if !topLevelDomain.contains(domainValue) && topLevelDomain != domainValue {
-        let reason = String(format: Self.invalidDomains, topLevelDomain, domainValue)
+    if let rawDomain = domain {
+      if !CookieDomainLogic.isCookieDomainValid(host: topLevelDomain, cookieDomain: rawDomain) {
+        let reason = String(format: Self.invalidDomains, topLevelDomain, rawDomain)
         throw NSError(domain: "CookieManager", code: -1, userInfo: [NSLocalizedDescriptionKey: reason])
       }
-      domain = domainValue
+      domain = rawDomain
     } else {
       domain = topLevelDomain
     }
@@ -371,11 +369,7 @@ public class CookieManagerImpl: NSObject {
   }
 
   private func isMatchingDomain(originDomain: String, cookieDomain: String) -> Bool {
-    if originDomain == cookieDomain {
-      return true
-    }
-    let parentDomain = cookieDomain.hasPrefix(".") ? cookieDomain : ".\(cookieDomain)"
-    return originDomain.hasSuffix(parentDomain)
+    CookieDomainLogic.isMatchingDomain(originDomain: originDomain, cookieDomain: cookieDomain)
   }
 
   private static let notAvailableErrorMessage =
