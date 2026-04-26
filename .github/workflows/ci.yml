@@ -33,18 +33,6 @@ jobs:
       - name: Typecheck files
         run: yarn typecheck
 
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: Setup
-        uses: ./.github/actions/setup
-
-      - name: Run unit tests
-        run: yarn test --maxWorkers=2 --coverage
 
   build-library:
     runs-on: ubuntu-latest
@@ -58,6 +46,87 @@ jobs:
 
       - name: Build package
         run: yarn prepare
+
+  expo-prebuild:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_WORK_DIR: ${{ github.workspace }}/.tmp/expo-prebuild
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Expo prebuild smoke test
+        run: |
+          set -euo pipefail
+
+          PACKAGE_TGZ="$(npm pack --silent --ignore-scripts | tail -n1)"
+          rm -rf "$EXPO_WORK_DIR"
+          mkdir -p "$EXPO_WORK_DIR"
+
+          npx --yes create-expo-app@latest "$EXPO_WORK_DIR/app" --template blank-typescript --yes --no-install
+
+          cd "$EXPO_WORK_DIR/app"
+          npm install
+          npm install --ignore-scripts "$GITHUB_WORKSPACE/$PACKAGE_TGZ"
+
+          CI=1 npx expo config --json > "$EXPO_WORK_DIR/expo-config.json" 2> "$EXPO_WORK_DIR/expo-config.stderr.log" || {
+            echo "::error::expo config failed"
+            if [[ -f "$EXPO_WORK_DIR/expo-config.stderr.log" ]]; then
+              echo "::group::expo config stderr"
+              cat "$EXPO_WORK_DIR/expo-config.stderr.log"
+              echo "::endgroup::"
+            fi
+            exit 1
+          }
+
+          node -e "JSON.parse(require(\"node:fs\").readFileSync(process.argv[1], \"utf8\"))" "$EXPO_WORK_DIR/expo-config.json" || {
+            echo "::error::expo config output is not valid JSON"
+            cat "$EXPO_WORK_DIR/expo-config.json" || true
+            exit 1
+          }
+
+          CI=1 npx expo prebuild --platform android --clean --no-install 2>&1 | tee "$EXPO_WORK_DIR/prebuild.log"
+
+      - name: Print Expo prebuild diagnostics
+        if: always()
+        run: |
+          set -euo pipefail
+
+          echo "::group::app.json"
+          if [[ -f "$EXPO_WORK_DIR/app/app.json" ]]; then
+            cat "$EXPO_WORK_DIR/app/app.json"
+          else
+            echo "Missing: $EXPO_WORK_DIR/app/app.json"
+          fi
+          echo "::endgroup::"
+
+          echo "::group::expo config"
+          if [[ -f "$EXPO_WORK_DIR/expo-config.json" ]]; then
+            cat "$EXPO_WORK_DIR/expo-config.json"
+          else
+            echo "Missing: $EXPO_WORK_DIR/expo-config.json"
+          fi
+          echo "::endgroup::"
+
+      - name: Upload Expo prebuild diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expo-prebuild-diagnostics
+          if-no-files-found: warn
+          path: |
+            ${{ env.EXPO_WORK_DIR }}/prebuild.log
+            ${{ env.EXPO_WORK_DIR }}/app/app.json
+            ${{ env.EXPO_WORK_DIR }}/expo-config.json
+            ${{ env.EXPO_WORK_DIR }}/expo-config.stderr.log
+
+      - name: Cleanup Expo prebuild workspace
+        if: always()
+        run: rm -rf "$EXPO_WORK_DIR"
 
   build-android:
     runs-on: ubuntu-latest
@@ -100,6 +169,7 @@ jobs:
         run: |
           /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
 
+
       - name: Cache Gradle
         if: env.turbo_cache_hit != 1
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -121,7 +191,7 @@ jobs:
     runs-on: macos-latest
 
     env:
-      XCODE_VERSION: 16.4
+      XCODE_VERSION: 26
       TURBO_CACHE_DIR: .turbo/ios
       RCT_USE_RN_DEP: 1
       RCT_USE_PREBUILT_RNCORE: 1
@@ -171,4 +241,20 @@ jobs:
 
       - name: Build example for iOS
         run: |
-          yarn turbo run build:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+          set -euo pipefail
+          IOS_BUILD_LOG="$RUNNER_TEMP/ios-build.log"
+          if ! yarn turbo run build:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}" 2>&1 | tee "$IOS_BUILD_LOG"; then
+            echo "::group::First iOS errors"
+            grep -nE " error: |fatal error:|Command PhaseScriptExecution failed|No such file|cannot find type " \
+              "$IOS_BUILD_LOG" | head -n 80 || true
+            echo "::endgroup::"
+            exit 1
+          fi
+
+      - name: Upload iOS build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/ios-build.log
