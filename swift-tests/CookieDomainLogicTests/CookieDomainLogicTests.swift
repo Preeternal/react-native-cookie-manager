@@ -43,6 +43,30 @@ final class CookieDomainLogicTests: XCTestCase {
     )
   }
 
+  func testIsCookieDomainValidRejectsSubstringDomainMatch() {
+    XCTAssertFalse(
+      CookieDomainLogic.isCookieDomainValid(
+        host: "notexample.com",
+        cookieDomain: "example.com"
+      )
+    )
+    XCTAssertFalse(
+      CookieDomainLogic.isCookieDomainValid(
+        host: "badexample.com",
+        cookieDomain: "example.com"
+      )
+    )
+  }
+
+  func testIsCookieDomainValidIsCaseInsensitive() {
+    XCTAssertTrue(
+      CookieDomainLogic.isCookieDomainValid(
+        host: "APP.EXAMPLE.COM",
+        cookieDomain: "example.com"
+      )
+    )
+  }
+
   func testIsMatchingDomainAllowsParentDomainWithoutLeadingDot() {
     XCTAssertTrue(
       CookieDomainLogic.isMatchingDomain(

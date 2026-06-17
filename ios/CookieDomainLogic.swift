@@ -21,7 +21,10 @@ enum CookieDomainLogic {
     guard !domainForValidation.isEmpty else {
       return false
     }
-    return host == domainForValidation || host.contains(domainForValidation)
+
+    let normalizedHost = host.lowercased()
+    let normalizedDomain = domainForValidation.lowercased()
+    return normalizedHost == normalizedDomain || normalizedHost.hasSuffix(".\(normalizedDomain)")
   }
 
   static func isMatchingDomain(originDomain: String, cookieDomain: String) -> Bool {

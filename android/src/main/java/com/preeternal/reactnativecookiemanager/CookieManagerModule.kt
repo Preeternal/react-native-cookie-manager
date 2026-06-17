@@ -161,7 +161,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
         domain = domain.substring(1)
       }
 
-      if (domain != null && !topLevelDomain.contains(domain) && topLevelDomain != domain) {
+      if (domain != null && !domainMatches(topLevelDomain, domain)) {
         throw Exception(String.format(INVALID_DOMAINS, topLevelDomain, domain))
       }
 
@@ -224,6 +224,14 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
 
   private fun isEmpty(value: String?): Boolean {
     return value == null || value.isEmpty()
+  }
+
+  private fun domainMatches(host: String, domain: String): Boolean {
+    val normalizedHost = host.lowercase(Locale.US)
+    val normalizedDomain = domain.lowercase(Locale.US)
+
+    return normalizedDomain.isNotEmpty() &&
+      (normalizedHost == normalizedDomain || normalizedHost.endsWith(".$normalizedDomain"))
   }
 
   private fun dateFormatter(): DateFormat {
