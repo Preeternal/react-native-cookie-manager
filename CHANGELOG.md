@@ -2,6 +2,24 @@
 
 ---
 
+## v6.3.3: Strict cookie domain validation
+
+This release fixes inherited cookie domain validation behavior that accepted substring matches instead of RFC-style domain matches.
+
+### Fixed
+
+- Android now rejects invalid cookie domains such as `example.com` for `https://notexample.com`.
+- iOS uses the same exact-or-parent-domain validation when setting cookies.
+- Domain validation remains case-insensitive and continues to allow exact hosts and valid parent domains.
+
+### Tests
+
+- Added Swift regression coverage for substring domain mismatches such as `notexample.com` and `badexample.com`.
+
+Fixes #3
+
+---
+
 ## v6.3.2: React Native 0.85 template refresh
 
 This release refreshes the project scaffold and example app to the latest `create-react-native-library` template. The public CookieManager API and native cookie behavior are unchanged.
