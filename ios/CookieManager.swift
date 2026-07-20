@@ -73,7 +73,12 @@ public class CookieManagerImpl: NSObject {
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
-    guard let parsedUrl = URL(string: url as String) else {
+    guard
+      let parsedUrl = URL(string: url as String),
+      let scheme = parsedUrl.scheme?.lowercased(),
+      ["http", "https"].contains(scheme),
+      parsedUrl.host != nil
+    else {
       reject("invalid_url", Self.invalidURLMissingHTTP, nil)
       return
     }
@@ -94,9 +99,9 @@ public class CookieManagerImpl: NSObject {
 
       let responseURL = httpResponse.url ?? parsedUrl
       let cookies = HTTPCookie.cookies(withResponseHeaderFields: headerFields, for: responseURL)
-      var result: [String: String] = [:]
+      var result: [String: Any] = [:]
       cookies.forEach { cookie in
-        result[cookie.name] = cookie.value
+        result[cookie.name] = self.createCookieData(cookie)
         HTTPCookieStorage.shared.setCookie(cookie)
       }
       resolve(result)

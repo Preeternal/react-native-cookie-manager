@@ -21,6 +21,10 @@ const CookieManager = {
       : Promise.resolve(false),
   setFromResponse: (url: string, cookie: string) =>
     CookieManagerNative.setFromResponse(url, cookie),
+  /**
+   * @deprecated Make the request with `fetch`/Axios and then call `get()`.
+   * This upstream-compatible method performs its own GET request.
+   */
   getFromResponse: (url: string) => CookieManagerNative.getFromResponse(url),
 };
 

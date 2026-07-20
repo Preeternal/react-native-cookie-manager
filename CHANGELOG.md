@@ -2,6 +2,27 @@
 
 ---
 
+## v6.4.0 (Unreleased): response-cookie contract
+
+### Fixed
+
+- Android `getFromResponse()` now performs the inherited GET request instead of returning the input URL.
+- Android applies `Set-Cookie` before each redirect and selects stored cookies for every destination URL instead of forwarding the original `Cookie` header.
+- Both platforms return the declared `Cookies` object shape and update their native cookie store.
+- On iOS, `getFromResponse()` values are now `Cookie` objects instead of raw strings; read the cookie value through `.value`. This aligns runtime behavior with the existing TypeScript contract.
+
+### Deprecated
+
+- `getFromResponse()` is deprecated but retained for compatibility with `@react-native-cookies/cookies`; no removal version is scheduled.
+- Prefer making requests with Fetch/Axios and reading the shared native store with `get(url)`. This avoids a duplicate request and leaves request configuration with the application.
+
+### Documentation
+
+- Documented the network and cookie-store side effects of the legacy API.
+- Added a concise Fetch/Axios response flow and clarified the advanced `setFromResponse()` use case.
+
+---
+
 ## v6.3.3: Strict cookie domain validation
 
 This release fixes inherited cookie domain validation behavior that accepted substring matches instead of RFC-style domain matches.
