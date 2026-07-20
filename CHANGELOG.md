@@ -11,6 +11,7 @@
 - Both platforms return the declared `Cookies` object shape and update their native cookie store.
 - On iOS, `getFromResponse()` values are now `Cookie` objects instead of raw strings; read the cookie value through `.value`. This aligns runtime behavior with the existing TypeScript contract.
 - Awaiting Android `set()`, `setFromResponse()`, or `clearAll()` now guarantees that its automatic `flush()` has completed, so an immediate app shutdown or restart cannot leave the previous cookie state on disk. The blocking persistence work runs on a worker thread.
+- Awaiting iOS `clearByName(url, name, true)` now waits for every matching WebKit deletion, preventing a following request or WebView load from observing cookies that were still being removed.
 
 ### Deprecated
 

@@ -205,11 +205,30 @@ public class CookieManagerImpl: NSObject {
       DispatchQueue.main.async {
         WKWebsiteDataStore.default().httpCookieStore.getAllCookies { allCookies in
           let store = WKWebsiteDataStore.default().httpCookieStore
-          for cookie in allCookies where cookie.name == name && self.isMatchingDomain(originDomain: topLevelDomain, cookieDomain: cookie.domain) {
-            store.delete(cookie, completionHandler: nil)
-            found = true
+          let matchingCookies = allCookies.filter { cookie in
+            cookie.name == name &&
+              self.isMatchingDomain(
+                originDomain: topLevelDomain,
+                cookieDomain: cookie.domain
+              )
           }
-          resolve(found)
+
+          guard !matchingCookies.isEmpty else {
+            resolve(false)
+            return
+          }
+
+          let deletionGroup = DispatchGroup()
+          for cookie in matchingCookies {
+            deletionGroup.enter()
+            store.delete(cookie) {
+              deletionGroup.leave()
+            }
+          }
+
+          deletionGroup.notify(queue: .main) {
+            resolve(true)
+          }
         }
       }
     } else {
