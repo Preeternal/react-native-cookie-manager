@@ -43,12 +43,11 @@ Supports both old (bridged) and New Architecture (TurboModule) builds out of the
 React Native stores response cookies automatically. Make the request with your HTTP client, then read cookies matching the URL:
 
 ```ts
-import axios from 'axios';
 import CookieManager from '@preeternal/react-native-cookie-manager';
 
 const url = 'https://example.com/login';
-await axios.get(url);
-// Fetch alternative: await fetch(url);
+await fetch(url);
+// axios alternative: await axios(url);;
 const cookies = await CookieManager.get(url);
 ```
 
