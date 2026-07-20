@@ -47,7 +47,7 @@ import CookieManager from '@preeternal/react-native-cookie-manager';
 
 const url = 'https://example.com/login';
 await fetch(url);
-// axios alternative: await axios(url);;
+// axios alternative: await axios(url);
 const cookies = await CookieManager.get(url);
 ```
 
