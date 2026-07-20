@@ -2,7 +2,7 @@
 
 ---
 
-## v6.4.0 (Unreleased): response-cookie contract
+## v6.4.0 (Unreleased)
 
 ### Fixed
 
@@ -10,6 +10,7 @@
 - Android applies `Set-Cookie` before each redirect and selects stored cookies for every destination URL instead of forwarding the original `Cookie` header.
 - Both platforms return the declared `Cookies` object shape and update their native cookie store.
 - On iOS, `getFromResponse()` values are now `Cookie` objects instead of raw strings; read the cookie value through `.value`. This aligns runtime behavior with the existing TypeScript contract.
+- Awaiting Android `set()`, `setFromResponse()`, or `clearAll()` now guarantees that its automatic `flush()` has completed, so an immediate app shutdown or restart cannot leave the previous cookie state on disk. The blocking persistence work runs on a worker thread.
 
 ### Deprecated
 

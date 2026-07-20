@@ -105,8 +105,9 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   override fun clearAll(useWebKit: Boolean?, promise: Promise) {
     try {
       val cookieManager = getCookieManager()
-      cookieManager.removeAllCookies { promise.resolve(it) }
-      cookieManager.flush()
+      cookieManager.removeAllCookies {
+        flushAndResolve(cookieManager, it, promise, "clear_all_error")
+      }
     } catch (e: Exception) {
       promise.reject("clear_all_error", e)
     }
@@ -132,10 +133,27 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   private fun addCookies(url: String, cookieString: String, promise: Promise) {
     try {
       val cookieManager = getCookieManager()
-      cookieManager.setCookie(url, cookieString) { promise.resolve(it) }
-      cookieManager.flush()
+      cookieManager.setCookie(url, cookieString) {
+        flushAndResolve(cookieManager, it, promise, "add_cookie_error")
+      }
     } catch (e: Exception) {
       promise.reject("add_cookie_error", e)
+    }
+  }
+
+  private fun flushAndResolve(
+    cookieManager: CookieManager,
+    result: Boolean,
+    promise: Promise,
+    errorCode: String
+  ) {
+    PERSISTENCE_EXECUTOR.execute {
+      try {
+        cookieManager.flush()
+        promise.resolve(result)
+      } catch (e: Exception) {
+        promise.reject(errorCode, e)
+      }
     }
   }
 
@@ -584,6 +602,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     private val USES_LEGACY_STORE = Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP
     private val HTTP_ONLY_SUPPORTED = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
     private val NETWORK_EXECUTOR = Executors.newCachedThreadPool()
+    private val PERSISTENCE_EXECUTOR = Executors.newSingleThreadExecutor()
 
     const val NAME = "CookieManager"
   }
