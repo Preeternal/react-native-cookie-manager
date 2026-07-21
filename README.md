@@ -81,9 +81,6 @@ await CookieManager.clearAll();
 // Clear Foundation and the default WebKit store on iOS
 await CookieManager.clearAllStores();
 
-// Android only: persist cookies to storage
-await CookieManager.flush();
-
 // Remove session cookies from both iOS stores; shared Android store
 await CookieManager.removeSessionCookies();
 
@@ -116,7 +113,7 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 | `clearAllStores()` | iOS, Android | `Promise<boolean>` | Clears the shared Android store, or Foundation and default WebKit on iOS; resolves `true` after native completion. |
 | `getAll(useWebKit?)` | iOS | `Promise<Cookies>` | Reads Foundation by default or default WebKit when `true`. |
 | `clearByName(url, name, useWebKit?)` | iOS | `Promise<boolean>` | Clears matching cookies from Foundation by default or default WebKit when `true`. |
-| `flush()` | iOS, Android | `Promise<void>` | Explicitly persists the Android store; it is a no-op on iOS because the system manages persistence automatically. |
+| `flush()` | iOS, Android | `Promise<void>` | Explicit persistence barrier for the Android store; normally unnecessary after library mutations. It is a no-op on iOS because the system manages persistence automatically. |
 | `removeSessionCookies(options?)` | iOS, Android | `Promise<boolean>` | Removes cookies without an expiry date and reports whether any were removed; includes both iOS stores by default. |
 | `setFromResponse(url, cookieHeader)` | iOS, Android | `Promise<boolean>` | Imports one raw `Set-Cookie` header value; uses Foundation on iOS. |
 | `getFromResponse(url)` | iOS, Android | `Promise<Cookies>` | Deprecated; performs a GET and updates Foundation on iOS. |
@@ -124,17 +121,6 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 Exactly five methods accept `useWebKit`: `set()`, `get()`, `clearAll()`, `getAll()`, and `clearByName()`. On iOS, omitted/`false` selects Foundation and `true` selects only the default WebKit store; it never combines them. On Android the flag is ignored because WebView and native share a single store.
 
 `removeSessionCookies()` clears both iOS stores by default. Pass `{ iosCookieStore: 'foundation' }` or `{ iosCookieStore: 'webKit' }` to limit cleanup to one store. Android ignores this iOS-only option.
-
-### WebKit on iOS
-
-- iOS has two stores: `NSHTTPCookieStorage` (used by URLSession) and `WKHTTPCookieStore` (used by WKWebView / `react-native-webview`).
-- Pass `useWebKit: true` to operate on the default WKWebView cookie store. For network-only flows, omit it to use `NSHTTPCookieStorage`.
-- To apply `set()` or `clearByName()` to both stores, call the method once with `useWebKit: false` and once with `true`. Reading both stores with `get()` or `getAll()` likewise requires two calls; results are returned separately and are not merged.
-- Use `clearAllStores()` when logout must clear both app-accessible stores. The library cannot access a non-persistent or custom store owned by a specific WebView.
-- On Android the flag is ignored; WebView and native use the same store.
-
-> [!WARNING]
-> On Android, `react-native-webview`'s `incognito` mode currently clears the shared app-wide cookie store, including cookies used by React Native networking. Avoid it when your app relies on authenticated native requests. See [react-native-webview#3988](https://github.com/react-native-webview/react-native-webview/issues/3988).
 
 ### Cookie shape
 
@@ -152,6 +138,27 @@ type Cookie = {
 ```
 
 On Android, metadata is populated when the installed WebView supports `GET_COOKIE_INFO`. Older WebViews fall back to legacy name/value parsing, so `domain`, `path`, and `expires` may be unavailable, while `secure` and `httpOnly` should not be treated as authoritative.
+
+### WebKit on iOS
+
+- iOS has two stores: `NSHTTPCookieStorage` (used by URLSession) and `WKHTTPCookieStore` (used by WKWebView / `react-native-webview`).
+- Pass `useWebKit: true` to operate on the default WKWebView cookie store. For network-only flows, omit it to use `NSHTTPCookieStorage`.
+- To apply `set()` or `clearByName()` to both stores, call the method once with `useWebKit: false` and once with `true`. Reading both stores with `get()` or `getAll()` likewise requires two calls; results are returned separately and are not merged.
+- Use `clearAllStores()` when logout must clear both app-accessible stores. The library cannot access a non-persistent or custom store owned by a specific WebView.
+- On Android the flag is ignored; WebView and native use the same store.
+
+> [!WARNING]
+> On Android, `react-native-webview`'s `incognito` mode currently clears the shared app-wide cookie store, including cookies used by React Native networking. Avoid it when your app relies on authenticated native requests. See [react-native-webview#3988](https://github.com/react-native-webview/react-native-webview/issues/3988).
+
+### Persistence and expiration
+
+- A cookie is persistent only when the server supplies `Expires`/`Max-Age`, or when `set()` receives `expires`. Native stores enforce expiration; `flush()` does not extend a cookie's lifetime or turn a session cookie into a persistent one.
+- On iOS, Foundation and WebKit manage persistence automatically. There is no public explicit flush API, so `flush()` is a no-op.
+- On Android, the library automatically flushes the shared WebView cookie store after its mutations. Current WebView implementations may also restore session cookies—cookies without an expiry—after a process restart.
+
+On Android, mutation methods automatically flush before their Promises resolve. Calling `flush()` immediately after awaiting `set()`, `setFromResponse()`, `getFromResponse()`, `clearAll()`, `clearAllStores()`, or `removeSessionCookies()` is redundant. Use it only as an explicit persistence barrier after the shared Android store was changed outside this library.
+
+The library intentionally does not maintain a separate cookie backup or silently replay cookies on startup. That could resurrect expired or logged-out authentication state and would require the application to choose appropriate secure storage. Prefer server-defined persistent cookies; call `removeSessionCookies()` before the first request or WebView load when the application requires a clean session on launch.
 
 ## Contributing
 

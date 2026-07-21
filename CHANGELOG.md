@@ -14,6 +14,7 @@
 - Android applies `Set-Cookie` before each redirect and selects stored cookies for every destination URL instead of forwarding the original `Cookie` header.
 - Both platforms return the declared `Cookies` object shape and update their native cookie store.
 - On iOS, `getFromResponse()` values are now `Cookie` objects instead of raw strings; read the cookie value through `.value`. This aligns runtime behavior with the existing TypeScript contract.
+- Awaiting Android `getFromResponse()` now guarantees that cookies stored from the final response or any redirect have been flushed to persistent storage; the blocking persistence work runs on a worker thread.
 - Awaiting Android `set()`, `setFromResponse()`, or `clearAll()` now guarantees that its automatic `flush()` has completed, so an immediate app shutdown or restart cannot leave the previous cookie state on disk. The blocking persistence work runs on a worker thread.
 - Awaiting iOS `clearByName(url, name, true)` now waits for every matching WebKit deletion, preventing a following request or WebView load from observing cookies that were still being removed.
 - Android `get(url)` now returns stored `domain`, `path`, `expires`, `secure`, and `httpOnly` attributes when the installed WebView supports `GET_COOKIE_INFO`. Older WebViews transparently retain the previous name/value-only behavior.
@@ -39,6 +40,8 @@
 
 - Documented the network and cookie-store side effects of the legacy API.
 - Added a concise Fetch/Axios response flow and clarified the advanced `setFromResponse()` use case.
+- Clarified that direct Android `flush()` calls are redundant after library mutations and are intended only as a persistence barrier for external shared-store changes.
+- Documented native persistence and expiration behavior, including Android WebView session-cookie restoration and the decision not to maintain a separate automatic cookie backup.
 
 ---
 

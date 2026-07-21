@@ -166,7 +166,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
 
   private fun flushAndResolve(
     cookieManager: CookieManager,
-    result: Boolean,
+    result: Any?,
     promise: Promise,
     errorCode: String
   ) {
@@ -208,6 +208,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   ) {
     var currentUrl = url
     var redirectCount = 0
+    var storedRedirectCookies = false
 
     try {
       while (true) {
@@ -238,6 +239,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
             // Apply redirect cookies before selecting cookies for the next URL.
             // The callback confirms that WebView's cookie store has been updated.
             storeResponseCookiesAndWait(currentUrl, setCookieHeaders)
+            storedRedirectCookies = storedRedirectCookies || setCookieHeaders.isNotEmpty()
             currentUrl = redirectUrl
             redirectCount += 1
             continue
@@ -245,7 +247,13 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
 
           val responseCookies = parseResponseCookies(setCookieHeaders, currentUrl)
           reactApplicationContext.runOnUiQueueThread {
-            storeResponseCookies(currentUrl, setCookieHeaders, responseCookies, promise)
+            storeResponseCookies(
+              currentUrl,
+              setCookieHeaders,
+              responseCookies,
+              shouldFlush = storedRedirectCookies || setCookieHeaders.isNotEmpty(),
+              promise = promise
+            )
           }
           return
         } finally {
@@ -361,10 +369,11 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     responseUrl: URL,
     headers: List<String>,
     cookies: List<ResponseCookie>,
+    shouldFlush: Boolean,
     promise: Promise
   ) {
     val result = createResponseCookieList(cookies)
-    if (headers.isEmpty()) {
+    if (!shouldFlush) {
       promise.resolve(result)
       return
     }
@@ -372,6 +381,11 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     var settled = false
     try {
       val cookieManager = getCookieManager()
+      if (headers.isEmpty()) {
+        flushAndResolve(cookieManager, result, promise, "get_from_response_error")
+        return
+      }
+
       var remaining = headers.size
 
       for (header in headers) {
@@ -379,7 +393,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
           remaining -= 1
           if (remaining == 0 && !settled) {
             settled = true
-            promise.resolve(result)
+            flushAndResolve(cookieManager, result, promise, "get_from_response_error")
           }
         }
       }
