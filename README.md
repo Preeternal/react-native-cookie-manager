@@ -36,6 +36,39 @@ cd ios && bundle exec pod install
 
 Supports both old (bridged) and New Architecture (TurboModule) builds out of the box. Works in bare RN apps and in Expo Dev Builds (custom native build).
 
+### AndroidX WebKit version
+
+Android uses `androidx.webkit:webkit:1.16.0` by default. Most applications do not need to configure it. Bare React Native apps can override the requested version in `android/gradle.properties`:
+
+```properties
+react_native_cookie_manager_webkit_version=1.16.0
+```
+
+Alternatively, an existing shared override in the root `android/build.gradle` is honored, including when it also configures `react-native-webview`:
+
+```gradle
+rootProject.ext.webkitVersion = "1.16.0"
+```
+
+The package-specific `gradle.properties` value takes precedence when both are present.
+
+Expo apps can configure the same property during prebuild:
+
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "@preeternal/react-native-cookie-manager",
+        { "androidWebkitVersion": "1.16.0" }
+      ]
+    ]
+  }
+}
+```
+
+Versions older than `1.6.0` are unsupported because the library compiles against `CookieManagerCompat.getCookieInfo()`. Gradle may select a higher compatible version when another dependency requires it.
+
 ## Usage
 
 ### After a network request

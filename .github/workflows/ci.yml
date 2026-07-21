@@ -33,6 +33,8 @@ jobs:
       - name: Typecheck files
         run: yarn typecheck
 
+      - name: Test Expo config plugin
+        run: yarn test:plugin
 
   build-library:
     runs-on: ubuntu-latest
@@ -73,6 +75,16 @@ jobs:
           npm install
           npm install --ignore-scripts "$GITHUB_WORKSPACE/$PACKAGE_TGZ"
 
+          node -e '
+            const fs = require("node:fs");
+            const app = JSON.parse(fs.readFileSync("app.json", "utf8"));
+            app.expo.plugins = [
+              ...(app.expo.plugins || []),
+              ["@preeternal/react-native-cookie-manager", { androidWebkitVersion: "1.15.0" }]
+            ];
+            fs.writeFileSync("app.json", JSON.stringify(app, null, 2) + "\n");
+          '
+
           CI=1 npx expo config --json > "$EXPO_WORK_DIR/expo-config.json" 2> "$EXPO_WORK_DIR/expo-config.stderr.log" || {
             echo "::error::expo config failed"
             if [[ -f "$EXPO_WORK_DIR/expo-config.stderr.log" ]]; then
@@ -90,6 +102,8 @@ jobs:
           }
 
           CI=1 npx expo prebuild --platform android --clean --no-install 2>&1 | tee "$EXPO_WORK_DIR/prebuild.log"
+
+          grep -Fx "react_native_cookie_manager_webkit_version=1.15.0" android/gradle.properties
 
       - name: Print Expo prebuild diagnostics
         if: always()

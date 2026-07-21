@@ -24,6 +24,14 @@ export default defineConfig([
     },
   },
   {
-    ignores: ['eslint.config.mjs', 'node_modules/', 'lib/'],
+    ignores: [
+      'eslint.config.mjs',
+      'node_modules/',
+      'lib/',
+      'android/build/',
+      'example/android/build/',
+      'example/android/app/build/',
+      'example/ios/build/',
+    ],
   },
 ]);

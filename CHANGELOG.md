@@ -10,6 +10,7 @@
 - Added `getAsArray()` on both platforms and iOS-only `getAllAsArray()` to preserve cookies that share a name but differ by domain or path. Existing `get()` and `getAll()` retain their upstream-compatible last-cookie-wins object shape.
 - Added `getCookieHeader(url, useWebKit?)` to read matching cookies as a ready-to-use `Cookie` request-header value. It preserves duplicate names and returns an empty string when no cookies match.
 - Added Android support for `clearByName(url, name)`. When the device's Android System WebView provider supports `GET_COOKIE_INFO`, it expires every same-name domain/path variant applicable to the supplied URL, waits for all deletion callbacks, then flushes persistence. Devices with an older provider reject with `not_supported` instead of risking incomplete deletion.
+- Added AndroidX WebKit version configuration for bare React Native and Expo builds through `react_native_cookie_manager_webkit_version` / `androidWebkitVersion`. The shared `rootProject.ext.webkitVersion` override used by `react-native-webview` is also honored.
 
 ### Fixed
 
@@ -35,10 +36,11 @@
 - Added Foundation and WebKit store integration tests on macOS and iOS Simulator, covering duplicate-name round trips, store selection, and completion-aware deletion/cleanup.
 - Added Swift coverage for request-header formatting and WebKit domain/path/secure/expiry matching, plus Android coverage for raw header passthrough and empty stores.
 - Added Android coverage for host-only, domain, path, prefixed, and partitioned cookie deletion, unsupported providers, callback ordering, and rejected writes.
+- Added unit coverage for the Expo config plugin and extended the Expo prebuild smoke test to verify its generated Gradle property.
 
 ### Compatibility
 
-- Android now depends on `androidx.webkit:webkit:1.16.0` (`minSdk 24`, `compileSdk 33+`, and Android Gradle Plugin 7.2+); the library defaults remain `minSdk 24`, `compileSdk 36`, and AGP 8.7.2.
+- Android defaults to `androidx.webkit:webkit:1.16.0`; applications may request another full version through the package Gradle/Expo option or shared `rootProject.ext.webkitVersion`. Versions below `1.6.0` are rejected, while normal Gradle conflict resolution may select a higher version. The library defaults remain `minSdk 24`, `compileSdk 36`, and AGP 8.7.2.
 
 ### Deprecated
 
@@ -51,6 +53,7 @@
 - Added a concise Fetch/Axios response flow and clarified the advanced `setFromResponse()` use case.
 - Clarified that direct Android `flush()` calls are redundant after library mutations and are intended only as a persistence barrier for external shared-store changes.
 - Documented native persistence and expiration behavior, including Android WebView session-cookie restoration and the decision not to maintain a separate automatic cookie backup.
+- Documented AndroidX WebKit overrides for bare React Native, `react-native-webview` interoperability, and Expo prebuild.
 
 ---
 

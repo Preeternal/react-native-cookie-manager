@@ -1,9 +1,10 @@
 buildscript {
-  ext.CookieManager = [
+  ext.CookieManagerConfig = [
     kotlinVersion: "2.0.21",
     minSdkVersion: 24,
     compileSdkVersion: 36,
-    targetSdkVersion: 36
+    targetSdkVersion: 36,
+    webkitVersion: "1.16.0"
   ]
 
   ext.getExtOrDefault = { prop ->
@@ -11,7 +12,7 @@ buildscript {
       return rootProject.ext.get(prop)
     }
 
-    return CookieManager[prop]
+    return CookieManagerConfig[prop]
   }
 
   repositories {
@@ -31,6 +32,39 @@ apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
 apply plugin: "com.facebook.react"
+
+def configuredWebkitVersion =
+  project.findProperty("react_native_cookie_manager_webkit_version")
+    ?: rootProject.findProperty("react_native_cookie_manager_webkit_version")
+def cookieManagerWebkitVersion =
+  (configuredWebkitVersion ?: getExtOrDefault("webkitVersion")).toString()
+def webkitVersionMatch =
+  (cookieManagerWebkitVersion =~ /^(\d+)\.(\d+)\.(\d+)((?:[-+][0-9A-Za-z.-]+)?)$/)
+
+if (!webkitVersionMatch.matches()) {
+  throw new GradleException(
+    "react_native_cookie_manager_webkit_version must be a full version such as 1.16.0 " +
+      "(got '${cookieManagerWebkitVersion}')"
+  )
+}
+
+def webkitVersionParts = [
+  webkitVersionMatch.group(1).toInteger(),
+  webkitVersionMatch.group(2).toInteger(),
+  webkitVersionMatch.group(3).toInteger()
+]
+def webkitVersionSuffix = webkitVersionMatch.group(4)
+def webkitVersionIsTooOld =
+  webkitVersionParts[0] < 1 ||
+    (webkitVersionParts[0] == 1 && webkitVersionParts[1] < 6) ||
+    (webkitVersionParts == [1, 6, 0] && webkitVersionSuffix.startsWith("-"))
+
+if (webkitVersionIsTooOld) {
+  throw new GradleException(
+    "AndroidX WebKit ${cookieManagerWebkitVersion} is unsupported; " +
+      "@preeternal/react-native-cookie-manager requires 1.6.0 or newer"
+  )
+}
 
 android {
   namespace "com.preeternal.reactnativecookiemanager"
@@ -64,7 +98,7 @@ android {
 
 dependencies {
   implementation "com.facebook.react:react-android"
-  implementation "androidx.webkit:webkit:1.16.0"
+  implementation "androidx.webkit:webkit:${cookieManagerWebkitVersion}"
 
   testImplementation "junit:junit:4.13.2"
 }
