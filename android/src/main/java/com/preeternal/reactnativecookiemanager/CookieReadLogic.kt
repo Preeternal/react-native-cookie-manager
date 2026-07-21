@@ -37,6 +37,11 @@ internal fun readCookieHeaders(
   return CookieReadResult.Legacy(legacyReader())
 }
 
+internal fun readCookieHeader(
+  url: String,
+  reader: (String) -> String?
+): String = reader(url).orEmpty()
+
 internal fun parseCookieReadResult(
   result: CookieReadResult,
   parsedAtMillis: Long = System.currentTimeMillis()

@@ -8,6 +8,7 @@
 
 - Added `clearAllStores()` for deterministic full-store cleanup. It clears Foundation and the default WebKit store on iOS, or the shared cookie store on Android, and resolves only after native cleanup (including Android persistence) completes. Existing `clearAll(useWebKit?)` behavior is unchanged.
 - Added `getAsArray()` on both platforms and iOS-only `getAllAsArray()` to preserve cookies that share a name but differ by domain or path. Existing `get()` and `getAll()` retain their upstream-compatible last-cookie-wins object shape.
+- Added `getCookieHeader(url, useWebKit?)` to read matching cookies as a ready-to-use `Cookie` request-header value. It preserves duplicate names and returns an empty string when no cookies match.
 
 ### Fixed
 
@@ -31,6 +32,7 @@
 - Added Swift regression coverage for mixed-case, leading-dot root, parent-domain, and substring-rejection matching.
 - Added Swift and Kotlin regression coverage for duplicate-name array reads and legacy object collapsing.
 - Added Foundation and WebKit store integration tests on macOS and iOS Simulator, covering duplicate-name round trips, store selection, and completion-aware deletion/cleanup.
+- Added Swift coverage for request-header formatting and WebKit domain/path/secure/expiry matching, plus Android coverage for raw header passthrough and empty stores.
 
 ### Compatibility
 

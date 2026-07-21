@@ -37,6 +37,8 @@ const CookieManager = {
     CookieManagerNative.getCookies(url, useWebKit),
   getAsArray: (url: string, useWebKit = false) =>
     CookieManagerNative.getAsArray(url, useWebKit),
+  getCookieHeader: (url: string, useWebKit = false) =>
+    CookieManagerNative.getCookieHeader(url, useWebKit),
   set: (url: string, cookie: Cookie, useWebKit = false) =>
     CookieManagerNative.setCookie(url, cookie, useWebKit),
   clearByName: (url: string, name: string, useWebKit = false) =>

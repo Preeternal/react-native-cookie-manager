@@ -126,6 +126,41 @@ public class CookieManagerImpl: NSObject {
     }
   }
 
+  @objc(getCookieHeader:useWebKit:resolve:reject:)
+  public func getCookieHeader(
+    url: NSString,
+    useWebKit: Bool,
+    resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    guard let parsedUrl = URL(string: url as String) else {
+      reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+      return
+    }
+
+    if useWebKit {
+      guard #available(iOS 11.0, *) else {
+        reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
+        return
+      }
+      guard parsedUrl.host?.isEmpty == false else {
+        reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+        return
+      }
+
+      CookieStoreAccess.loadAll(from: .webKit) { cookies in
+        let matchingCookies = CookieHeaderLogic.matchingWebKitCookies(
+          for: parsedUrl,
+          from: cookies
+        )
+        resolve(CookieHeaderLogic.headerValue(for: matchingCookies))
+      }
+    } else {
+      let cookies = HTTPCookieStorage.shared.cookies(for: parsedUrl) ?? []
+      resolve(CookieHeaderLogic.headerValue(for: cookies))
+    }
+  }
+
   @objc(clearAll:resolve:reject:)
   public func clearAll(
     useWebKit: Bool,

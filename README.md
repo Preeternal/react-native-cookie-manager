@@ -53,6 +53,8 @@ const cookies = await CookieManager.get(url);
 
 Standard React Native networking handles cookies by default. Credentials options are only needed if your client configuration explicitly disables cookie handling. `get()` only reads the native cookie store; it does not make a request.
 
+If a custom client or Axios adapter does not use React Native's native cookie handling, `getCookieHeader(url)` returns a ready-to-use `Cookie` request-header value. Do not add it to standard Fetch/Axios requests, where native networking already attaches cookies.
+
 The upstream-compatible `getFromResponse(url)` remains available but is deprecated: it performs a separate GET, follows redirects, and updates the cookie store without options for headers, authentication, timeout, or cancellation. Prefer the flow above to avoid a duplicate request and its side effects.
 
 ### Manage the cookie store
@@ -113,6 +115,7 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 | `set(url, cookie, useWebKit?)` | iOS, Android | `Promise<boolean>` | Stores a cookie. On iOS, uses Foundation by default or default WebKit when `true`. |
 | `get(url, useWebKit?)` | iOS, Android | `Promise<Cookies>` | Reads matching cookies without making a request. On iOS, uses Foundation by default or default WebKit when `true`. |
 | `getAsArray(url, useWebKit?)` | iOS, Android | `Promise<ReadonlyArray<Cookie>>` | Reads matching cookies without collapsing cookies that share a name. Store selection matches `get()`. |
+| `getCookieHeader(url, useWebKit?)` | iOS, Android | `Promise<string>` | Returns the selected store's matching cookies as a `Cookie` request-header value, or an empty string. |
 | `clearAll(useWebKit?)` | iOS, Android | `Promise<boolean>` | Clears the shared Android store. On iOS, clears Foundation by default or default WebKit when `true`. |
 | `clearAllStores()` | iOS, Android | `Promise<boolean>` | Clears the shared Android store, or Foundation and default WebKit on iOS; resolves `true` after native completion. |
 | `getAll(useWebKit?)` | iOS | `Promise<Cookies>` | Reads Foundation by default or default WebKit when `true`. |
@@ -123,7 +126,7 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 | `setFromResponse(url, cookieHeader)` | iOS, Android | `Promise<boolean>` | Imports one raw `Set-Cookie` header value; uses Foundation on iOS. |
 | `getFromResponse(url)` | iOS, Android | `Promise<Cookies>` | Deprecated; performs a GET and updates Foundation on iOS. |
 
-`useWebKit` is available on `set()`, `get()`, `getAsArray()`, `clearAll()`, `getAll()`, `getAllAsArray()`, and `clearByName()`. On iOS, omitted/`false` selects Foundation and `true` selects only the default WebKit store; it never combines them. On Android the flag is ignored because WebView and native share a single store.
+`useWebKit` is available on `set()`, `get()`, `getAsArray()`, `getCookieHeader()`, `clearAll()`, `getAll()`, `getAllAsArray()`, and `clearByName()`. On iOS, omitted/`false` selects Foundation and `true` selects only the default WebKit store; it never combines them. On Android the flag is ignored because WebView and native share a single store.
 
 `removeSessionCookies()` clears both iOS stores by default. Pass `{ iosCookieStore: 'foundation' }` or `{ iosCookieStore: 'webKit' }` to limit cleanup to one store. Android ignores this iOS-only option.
 
@@ -150,7 +153,8 @@ On Android, metadata is populated when the installed WebView supports `GET_COOKI
 
 - iOS has two stores: `NSHTTPCookieStorage` (used by URLSession) and `WKHTTPCookieStore` (used by WKWebView / `react-native-webview`).
 - Pass `useWebKit: true` to operate on the default WKWebView cookie store. For network-only flows, omit it to use `NSHTTPCookieStorage`.
-- To apply `set()` or `clearByName()` to both stores, call the method once with `useWebKit: false` and once with `true`. Reading both stores with `get()`, `getAsArray()`, `getAll()`, or `getAllAsArray()` likewise requires two calls; results are returned separately and are not merged.
+- To apply `set()` or `clearByName()` to both stores, call the method once with `useWebKit: false` and once with `true`. Reading both stores with `get()`, `getAsArray()`, `getCookieHeader()`, `getAll()`, or `getAllAsArray()` likewise requires two calls; results are returned separately and are not merged.
+- `getCookieHeader(url, true)` filters default WebKit cookies by domain, path, `Secure`, and expiry. A URL alone cannot reproduce WebKit's `SameSite`, partition, or third-party request context, so do not treat it as the exact header of an embedded WebView request.
 - Use `clearAllStores()` when logout must clear both app-accessible stores. The library cannot access a non-persistent or custom store owned by a specific WebView.
 - On Android the flag is ignored; WebView and native use the same store.
 

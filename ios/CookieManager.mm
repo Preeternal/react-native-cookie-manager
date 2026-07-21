@@ -73,6 +73,14 @@ RCT_EXPORT_MODULE();
   [_impl getAsArray:url useWebKit:[useWebKit boolValue] resolve:resolve reject:reject];
 }
 
+- (void)handleGetCookieHeader:(NSString *)url
+                    useWebKit:(NSNumber *)useWebKit
+                      resolve:(RCTPromiseResolveBlock)resolve
+                       reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl getCookieHeader:url useWebKit:[useWebKit boolValue] resolve:resolve reject:reject];
+}
+
 - (void)handleClearAll:(NSNumber *)useWebKit
                resolve:(RCTPromiseResolveBlock)resolve
                 reject:(RCTPromiseRejectBlock)reject
@@ -198,6 +206,14 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
   [self handleGetAsArray:url useWebKit:useWebKit resolve:resolve reject:reject];
 }
 
+- (void)getCookieHeader:(NSString *)url
+              useWebKit:(NSNumber *)useWebKit
+                resolve:(RCTPromiseResolveBlock)resolve
+                 reject:(RCTPromiseRejectBlock)reject
+{
+  [self handleGetCookieHeader:url useWebKit:useWebKit resolve:resolve reject:reject];
+}
+
 - (void)clearAll:(NSNumber *)useWebKit
          resolve:(RCTPromiseResolveBlock)resolve
           reject:(RCTPromiseRejectBlock)reject
@@ -304,6 +320,15 @@ RCT_EXPORT_METHOD(getAsArray
                   : (RCTPromiseRejectBlock)reject)
 {
   [self handleGetAsArray:url useWebKit:@(useWebKit) resolve:resolve reject:reject];
+}
+
+RCT_EXPORT_METHOD(getCookieHeader
+                  : (NSString *)url useWebKit
+                  : (BOOL)useWebKit resolve
+                  : (RCTPromiseResolveBlock)resolve reject
+                  : (RCTPromiseRejectBlock)reject)
+{
+  [self handleGetCookieHeader:url useWebKit:@(useWebKit) resolve:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(clearAll

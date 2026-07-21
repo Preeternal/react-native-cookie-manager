@@ -91,6 +91,19 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  override fun getCookieHeader(url: String, useWebKit: Boolean?, promise: Promise) {
+    if (url.isEmpty()) {
+      promise.reject("invalid_url", INVALID_URL_MISSING_HTTP)
+      return
+    }
+
+    try {
+      promise.resolve(readCookieHeader(url) { getCookieManager().getCookie(it) })
+    } catch (e: Exception) {
+      promise.reject("get_cookie_header_error", e)
+    }
+  }
+
   override fun getFromResponse(url: String, promise: Promise) {
     val parsedUrl = try {
       URL(url)

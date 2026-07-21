@@ -12,6 +12,24 @@ import java.util.TimeZone
 
 class CookieReadLogicTest {
   @Test
+  fun returnsRawRequestCookieHeaderForUrl() {
+    var requestedUrl: String? = null
+
+    val result = readCookieHeader("https://example.com/account") { url ->
+      requestedUrl = url
+      "session=root; session=account; theme=dark"
+    }
+
+    assertEquals("https://example.com/account", requestedUrl)
+    assertEquals("session=root; session=account; theme=dark", result)
+  }
+
+  @Test
+  fun returnsEmptyHeaderWhenStoreHasNoMatchingCookies() {
+    assertEquals("", readCookieHeader("https://example.com") { null })
+  }
+
+  @Test
   fun usesDetailedReaderWhenSupported() {
     var legacyReaderCalled = false
 

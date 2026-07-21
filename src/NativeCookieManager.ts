@@ -18,6 +18,7 @@ export interface Spec extends TurboModule {
   setFromResponse(url: string, cookie: string): Promise<boolean>;
   getCookies(url: string, useWebKit?: boolean): Promise<Cookies>;
   getAsArray(url: string, useWebKit?: boolean): Promise<ReadonlyArray<Cookie>>;
+  getCookieHeader(url: string, useWebKit?: boolean): Promise<string>;
   /**
    * @deprecated Make the request with `fetch`/Axios and then call `get()`.
    * The native name is retained for upstream API compatibility.
