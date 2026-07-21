@@ -156,7 +156,7 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 | **`getAll(useWebKit?)`**: `Promise<Cookies>` | iOS | Reads Foundation by default or default WebKit when `true`. |
 | **`getAllAsArray(useWebKit?)`**: `Promise<ReadonlyArray<Cookie>>` | iOS | Reads the selected iOS store without collapsing cookies that share a name. |
 | **`clearByName(url, name, useWebKit?)`**: `Promise<boolean>` | iOS, Android | Clears same-name cookies from the selected iOS store, or variants applicable to `url` in the shared Android store. |
-| **`flush()`**: `Promise<void>` | iOS, Android | Explicit persistence barrier for the Android store; normally unnecessary after library mutations. It is a no-op on iOS because the system manages persistence automatically. |
+| **`flush()`**: `Promise<void>` | iOS, Android | Explicit Android persistence barrier for external shared-store changes. Library mutations persist automatically on both platforms; this method is a no-op on iOS. |
 | **`removeSessionCookies(options?)`**: `Promise<boolean>` | iOS, Android | Removes cookies without an expiry date and reports whether any were removed; includes both iOS stores by default. |
 | **`setFromResponse(url, cookieHeader)`**: `Promise<boolean>` | iOS, Android | Imports one raw `Set-Cookie` header value; uses Foundation on iOS. |
 | **`getFromResponse(url)`**: `Promise<Cookies>` | iOS, Android | Deprecated; performs a GET and updates Foundation on iOS. |

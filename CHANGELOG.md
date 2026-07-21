@@ -2,7 +2,7 @@
 
 ---
 
-## v6.4.0 (Unreleased)
+## v6.4.0: Reliable native cookies and modern attributes (Unreleased)
 
 ### Added
 
@@ -40,6 +40,7 @@
 - Added Android coverage for host-only, domain, path, prefixed, and partitioned cookie deletion, unsupported providers, callback ordering, and rejected writes.
 - Added unit coverage for the Expo config plugin and extended the Expo prebuild smoke test to verify its generated Gradle property.
 - Added Swift and Kotlin coverage for `sameSite`, relative `maxAge`, `maxAge`/`expires` precedence, immediate deletion, invalid values, time-zone offsets, Android RFC serialization, and Foundation/WebKit store round trips.
+- Added example app device checks: a one-tap public API smoke test and a two-phase prepare → force-stop → verify flow for persistent-cookie restoration without an extra manual `flush()`.
 
 ### Compatibility
 
