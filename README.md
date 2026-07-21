@@ -123,7 +123,7 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 | `setFromResponse(url, cookieHeader)` | iOS, Android | `Promise<boolean>` | Imports one raw `Set-Cookie` header value; uses Foundation on iOS. |
 | `getFromResponse(url)` | iOS, Android | `Promise<Cookies>` | Deprecated; performs a GET and updates Foundation on iOS. |
 
-Seven methods accept `useWebKit`: `set()`, `get()`, `getAsArray()`, `clearAll()`, `getAll()`, `getAllAsArray()`, and `clearByName()`. On iOS, omitted/`false` selects Foundation and `true` selects only the default WebKit store; it never combines them. On Android the flag is ignored because WebView and native share a single store.
+`useWebKit` is available on `set()`, `get()`, `getAsArray()`, `clearAll()`, `getAll()`, `getAllAsArray()`, and `clearByName()`. On iOS, omitted/`false` selects Foundation and `true` selects only the default WebKit store; it never combines them. On Android the flag is ignored because WebView and native share a single store.
 
 `removeSessionCookies()` clears both iOS stores by default. Pass `{ iosCookieStore: 'foundation' }` or `{ iosCookieStore: 'webKit' }` to limit cleanup to one store. Android ignores this iOS-only option.
 
