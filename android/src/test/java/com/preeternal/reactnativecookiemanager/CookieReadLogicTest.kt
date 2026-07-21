@@ -114,6 +114,7 @@ class CookieReadLogicTest {
     assertEquals(parsedAt + 3_600_000L, cookies[0].expiresAt)
     assertTrue(cookies[0].secure)
     assertTrue(cookies[0].httpOnly)
+    assertEquals("lax", cookies[0].sameSite)
   }
 
   @Test
@@ -165,7 +166,15 @@ class CookieReadLogicTest {
       assertNull(cookie.expiresAt)
       assertFalse(cookie.secure)
       assertFalse(cookie.httpOnly)
+      assertNull(cookie.sameSite)
     }
+  }
+
+  @Test
+  fun normalizesSupportedSameSiteAndIgnoresUnknownValues() {
+    assertEquals("none", parseSameSiteAttribute("session=abc; SameSite=None; Secure"))
+    assertEquals("strict", parseSameSiteAttribute("session=abc; samesite=STRICT"))
+    assertNull(parseSameSiteAttribute("session=abc; SameSite=Cross-Site"))
   }
 
   @Test

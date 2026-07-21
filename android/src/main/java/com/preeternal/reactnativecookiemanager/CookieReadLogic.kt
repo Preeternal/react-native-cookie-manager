@@ -18,7 +18,8 @@ internal data class ParsedCookie(
   val path: String?,
   val expiresAt: Long?,
   val secure: Boolean,
-  val httpOnly: Boolean
+  val httpOnly: Boolean,
+  val sameSite: String?
 )
 
 internal fun readCookieHeaders(
@@ -71,13 +72,18 @@ internal fun parseCookieReadResult(
               null
             },
             secure = cookie.secure,
-            httpOnly = cookie.isHttpOnly
+            httpOnly = cookie.isHttpOnly,
+            sameSite = if (hasAttributes) parseSameSiteAttribute(header) else null
           )
         }
       }
     }
   }
 }
+
+internal fun parseSameSiteAttribute(header: String): String? =
+  SAME_SITE_ATTRIBUTE.find(header)?.groupValues?.get(1)?.trim()?.lowercase(Locale.US)
+    ?.takeIf { it == "lax" || it == "strict" || it == "none" }
 
 private fun expirationTime(
   header: String,
@@ -116,3 +122,5 @@ private val MAX_AGE_ATTRIBUTE =
   Regex("(?:^|;)\\s*max-age\\s*=\\s*([^;]*)", RegexOption.IGNORE_CASE)
 private val EXPIRES_ATTRIBUTE =
   Regex("(?:^|;)\\s*expires\\s*=\\s*([^;]*)", RegexOption.IGNORE_CASE)
+private val SAME_SITE_ATTRIBUTE =
+  Regex("(?:^|;)\\s*samesite\\s*=\\s*([^;]*)", RegexOption.IGNORE_CASE)

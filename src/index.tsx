@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import CookieManagerNative, {
   type Cookie,
+  type CookieSameSite,
   type Cookies,
 } from './NativeCookieManager';
 
@@ -55,5 +56,5 @@ const CookieManager = {
   getFromResponse: (url: string) => CookieManagerNative.getFromResponse(url),
 };
 
-export type { Cookie, Cookies };
+export type { Cookie, CookieSameSite, Cookies };
 export default CookieManager;

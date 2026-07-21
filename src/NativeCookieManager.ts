@@ -1,5 +1,7 @@
 import { TurboModuleRegistry, type TurboModule } from 'react-native';
 
+export type CookieSameSite = 'lax' | 'strict' | 'none';
+
 export type Cookie = {
   name: string;
   value: string;
@@ -9,6 +11,8 @@ export type Cookie = {
   expires?: string;
   secure?: boolean;
   httpOnly?: boolean;
+  sameSite?: CookieSameSite;
+  maxAge?: number;
 };
 
 export type Cookies = Record<string, Cookie>;

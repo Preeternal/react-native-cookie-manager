@@ -162,6 +162,12 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
   if (cookie.httpOnly().has_value()) {
     dict[@"httpOnly"] = @(cookie.httpOnly().value());
   }
+  if (cookie.sameSite() != nil) {
+    dict[@"sameSite"] = cookie.sameSite();
+  }
+  if (cookie.maxAge().has_value()) {
+    dict[@"maxAge"] = @(cookie.maxAge().value());
+  }
   return dict;
 }
 

@@ -100,6 +100,8 @@ await CookieManager.set('https://example.com', {
   path: '/',
   secure: true,
   httpOnly: true,
+  sameSite: 'lax',
+  maxAge: 60 * 60 * 24 * 7,
 });
 
 const cookies = await CookieManager.get('https://example.com');
@@ -145,7 +147,7 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 
 | Method | Platforms | Returns | Description |
 | --- | --- | --- | --- |
-| `set(url, cookie, useWebKit?)` | iOS, Android | `Promise<boolean>` | Stores a cookie. On iOS, uses Foundation by default or default WebKit when `true`. |
+| `set(url, cookie, useWebKit?)` | iOS, Android | `Promise<boolean>` | Stores a cookie, including `sameSite` and relative `maxAge`. On iOS, uses Foundation by default or default WebKit when `true`. |
 | `get(url, useWebKit?)` | iOS, Android | `Promise<Cookies>` | Reads matching cookies without making a request. On iOS, uses Foundation by default or default WebKit when `true`. |
 | `getAsArray(url, useWebKit?)` | iOS, Android | `Promise<ReadonlyArray<Cookie>>` | Reads matching cookies without collapsing cookies that share a name. Store selection matches `get()`. |
 | `getCookieHeader(url, useWebKit?)` | iOS, Android | `Promise<string>` | Returns the selected store's matching cookies as a `Cookie` request-header value, or an empty string. |
@@ -177,12 +179,18 @@ type Cookie = {
   expires?: string; // ISO 8601 string, e.g. 2015-05-30T12:30:00.00-05:00
   secure?: boolean;
   httpOnly?: boolean;
+  sameSite?: 'lax' | 'strict' | 'none';
+  maxAge?: number; // set() only: relative lifetime in whole seconds
 };
 ```
 
+`maxAge` takes precedence over `expires`; `0` or a negative value expires the cookie immediately. Native stores expose the resulting absolute `expires` date when reading, not the original `maxAge`. `sameSite: 'none'` requires `secure: true`. The iOS `HTTPCookie` model represents this unrestricted policy as no explicit SameSite value, so reads may omit `sameSite` after setting `'none'`.
+
+`partitioned` is intentionally not a structured field: creating a partitioned cookie requires top-level site context that this API's cookie URL cannot express consistently across Android and iOS. Prefer receiving it from the server or setting it inside the relevant WebView context.
+
 `Cookies` is keyed by cookie name, so `get()` and `getAll()` retain only the last item when multiple cookies share a name. This legacy behavior is preserved for upstream compatibility. Use `getAsArray()` or `getAllAsArray()` when `domain`/`path` variants must remain separate.
 
-On Android, metadata is populated when the device's Android System WebView provider supports `GET_COOKIE_INFO`. Devices with an older provider fall back to legacy name/value parsing, so `domain`, `path`, and `expires` may be unavailable, while `secure` and `httpOnly` should not be treated as authoritative.
+On Android, metadata is populated when the device's Android System WebView provider supports `GET_COOKIE_INFO`. Devices with an older provider fall back to legacy name/value parsing, so `domain`, `path`, `expires`, and `sameSite` may be unavailable, while `secure` and `httpOnly` should not be treated as authoritative.
 
 ### WebKit on iOS
 
@@ -198,7 +206,7 @@ On Android, metadata is populated when the device's Android System WebView provi
 
 ### Persistence and expiration
 
-- A cookie is persistent only when the server supplies `Expires`/`Max-Age`, or when `set()` receives `expires`. Native stores enforce expiration; `flush()` does not extend a cookie's lifetime or turn a session cookie into a persistent one.
+- A cookie is persistent only when the server supplies `Expires`/`Max-Age`, or when `set()` receives `expires`/`maxAge`. Native stores enforce expiration; `flush()` does not extend a cookie's lifetime or turn a session cookie into a persistent one.
 - On iOS, Foundation and WebKit manage persistence automatically. There is no public explicit flush API, so `flush()` is a no-op.
 - On Android, the library automatically flushes the shared WebView cookie store after its mutations. Current WebView implementations may also restore session cookies—cookies without an expiry—after a process restart.
 

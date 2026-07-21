@@ -13,6 +13,7 @@ let package = Package(
       name: "CookieDomainLogic",
       path: "ios",
       exclude: [
+        "CookieAttributeLogic.swift",
         "CookieHeaderLogic.swift",
         "CookieCollectionLogic.swift",
         "CookieManager.h",
@@ -28,6 +29,7 @@ let package = Package(
       name: "CookieSessionLogic",
       path: "ios",
       exclude: [
+        "CookieAttributeLogic.swift",
         "CookieHeaderLogic.swift",
         "CookieCollectionLogic.swift",
         "CookieDomainLogic.swift",
@@ -43,6 +45,7 @@ let package = Package(
       name: "CookieStoreClearLogic",
       path: "ios",
       exclude: [
+        "CookieAttributeLogic.swift",
         "CookieHeaderLogic.swift",
         "CookieCollectionLogic.swift",
         "CookieDomainLogic.swift",
@@ -58,6 +61,7 @@ let package = Package(
       name: "CookieCollectionLogic",
       path: "ios",
       exclude: [
+        "CookieAttributeLogic.swift",
         "CookieHeaderLogic.swift",
         "CookieDomainLogic.swift",
         "CookieManager.h",
@@ -73,6 +77,7 @@ let package = Package(
       name: "CookieStoreAccess",
       path: "ios",
       exclude: [
+        "CookieAttributeLogic.swift",
         "CookieHeaderLogic.swift",
         "CookieCollectionLogic.swift",
         "CookieDomainLogic.swift",
@@ -88,6 +93,7 @@ let package = Package(
       name: "CookieHeaderLogic",
       path: "ios",
       exclude: [
+        "CookieAttributeLogic.swift",
         "CookieCollectionLogic.swift",
         "CookieDomainLogic.swift",
         "CookieManager.h",
@@ -98,6 +104,22 @@ let package = Package(
         "CookieStoreClearLogic.swift",
       ],
       sources: ["CookieHeaderLogic.swift"]
+    ),
+    .target(
+      name: "CookieAttributeLogic",
+      path: "ios",
+      exclude: [
+        "CookieCollectionLogic.swift",
+        "CookieDomainLogic.swift",
+        "CookieHeaderLogic.swift",
+        "CookieManager.h",
+        "CookieManager.mm",
+        "CookieManager.swift",
+        "CookieSessionLogic.swift",
+        "CookieStoreAccess.swift",
+        "CookieStoreClearLogic.swift",
+      ],
+      sources: ["CookieAttributeLogic.swift"]
     ),
     .testTarget(
       name: "CookieDomainLogicTests",
@@ -128,6 +150,11 @@ let package = Package(
       name: "CookieHeaderLogicTests",
       dependencies: ["CookieHeaderLogic"],
       path: "swift-tests/CookieHeaderLogicTests"
+    ),
+    .testTarget(
+      name: "CookieAttributeLogicTests",
+      dependencies: ["CookieAttributeLogic"],
+      path: "swift-tests/CookieAttributeLogicTests"
     ),
   ]
 )

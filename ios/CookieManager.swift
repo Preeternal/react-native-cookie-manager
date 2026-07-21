@@ -425,7 +425,6 @@ public class CookieManagerImpl: NSObject {
     let path = (props["path"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "/"
     var domain = CookieDomainLogic.normalizedInputDomain(props["domain"] as? String)
     let version = props["version"] as? String
-    let expires = props["expires"] as? String
     let secure = props["secure"] as? Bool ?? false
     let httpOnly = props["httpOnly"] as? Bool ?? false
 
@@ -449,9 +448,12 @@ public class CookieManagerImpl: NSObject {
     if let version {
       cookieProperties[.version] = version
     }
-    if let expires, let date = parseDate(expires) {
-      cookieProperties[.expires] = date
-    }
+    try CookieAttributeLogic.apply(
+      props: props,
+      secure: secure,
+      to: &cookieProperties,
+      parseDate: parseDate
+    )
     if secure {
       cookieProperties[.secure] = secure
     }
@@ -479,6 +481,9 @@ public class CookieManagerImpl: NSObject {
 
     if let expiresDate = cookie.expiresDate {
       cookieData["expires"] = formatter.string(from: expiresDate)
+    }
+    if let sameSite = CookieAttributeLogic.sameSiteValue(from: cookie) {
+      cookieData["sameSite"] = sameSite
     }
 
     return cookieData

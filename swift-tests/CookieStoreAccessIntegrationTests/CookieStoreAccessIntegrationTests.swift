@@ -11,6 +11,22 @@ final class CookieStoreAccessIntegrationTests: XCTestCase {
     await assertRoundTrip(in: .webKit)
   }
 
+  func testFoundationRoundTripPreservesModernAttributes() async {
+    await assertModernAttributesRoundTrip(in: .foundation)
+  }
+
+  func testWebKitRoundTripPreservesModernAttributes() async {
+    await assertModernAttributesRoundTrip(in: .webKit)
+  }
+
+  func testFoundationMaxAgeZeroExpiresExistingCookie() async {
+    await assertMaxAgeZeroExpiresExistingCookie(in: .foundation)
+  }
+
+  func testWebKitMaxAgeZeroExpiresExistingCookie() async {
+    await assertMaxAgeZeroExpiresExistingCookie(in: .webKit)
+  }
+
   func testClearAllTargetsSelectedStoreAndWaitsForCompletion() async {
     let identifier = UUID().uuidString.lowercased()
     let name = "cookie_manager_\(identifier.replacingOccurrences(of: "-", with: ""))"
@@ -58,6 +74,54 @@ final class CookieStoreAccessIntegrationTests: XCTestCase {
     for cookie in stored {
       await delete(cookie, from: store)
     }
+
+    let remaining = await load(for: url, from: store).filter { $0.name == name }
+    XCTAssertTrue(remaining.isEmpty)
+    await clearAll(from: store)
+  }
+
+  private func assertModernAttributesRoundTrip(in store: CookieStoreKind) async {
+    let identifier = UUID().uuidString.lowercased()
+    let name = "cookie_manager_\(identifier.replacingOccurrences(of: "-", with: ""))"
+    let host = "\(identifier).cookie-manager.invalid"
+    let url = URL(string: "https://\(host)/")!
+    let cookie = HTTPCookie(properties: [
+      .name: name,
+      .value: "modern",
+      .domain: host,
+      .path: "/",
+      .secure: true,
+      .maximumAge: "3600",
+      .sameSitePolicy: "strict",
+    ])!
+
+    await set(cookie, in: store)
+
+    let stored = await load(for: url, from: store).first { $0.name == name }
+    XCTAssertEqual(stored?.sameSitePolicy?.rawValue, "strict")
+    XCTAssertGreaterThan(stored?.expiresDate ?? .distantPast, Date())
+
+    if let stored {
+      await delete(stored, from: store)
+    }
+    await clearAll(from: store)
+  }
+
+  private func assertMaxAgeZeroExpiresExistingCookie(in store: CookieStoreKind) async {
+    let identifier = UUID().uuidString.lowercased()
+    let name = "cookie_manager_\(identifier.replacingOccurrences(of: "-", with: ""))"
+    let host = "\(identifier).cookie-manager.invalid"
+    let url = URL(string: "https://\(host)/")!
+
+    await set(makeCookie(name: name, value: "active", domain: host, path: "/"), in: store)
+    let expiredCookie = HTTPCookie(properties: [
+      .name: name,
+      .value: "expired",
+      .domain: host,
+      .path: "/",
+      .maximumAge: "0",
+    ])!
+    await set(expiredCookie, in: store)
 
     let remaining = await load(for: url, from: store).filter { $0.name == name }
     XCTAssertTrue(remaining.isEmpty)

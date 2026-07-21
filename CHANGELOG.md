@@ -11,6 +11,7 @@
 - Added `getCookieHeader(url, useWebKit?)` to read matching cookies as a ready-to-use `Cookie` request-header value. It preserves duplicate names and returns an empty string when no cookies match.
 - Added Android support for `clearByName(url, name)`. When the device's Android System WebView provider supports `GET_COOKIE_INFO`, it expires every same-name domain/path variant applicable to the supplied URL, waits for all deletion callbacks, then flushes persistence. Devices with an older provider reject with `not_supported` instead of risking incomplete deletion.
 - Added AndroidX WebKit version configuration for bare React Native and Expo builds through `react_native_cookie_manager_webkit_version` / `androidWebkitVersion`. The shared `rootProject.ext.webkitVersion` override used by `react-native-webview` is also honored.
+- Added structured `sameSite` and `maxAge` fields to `set()` on both platforms. `maxAge` is a relative lifetime in whole seconds and takes precedence over `expires`; `SameSite=None` requires `Secure`. Reads return `sameSite` when the selected native store exposes it and continue to return the effective absolute `expires` date rather than the original `maxAge`.
 
 ### Fixed
 
@@ -22,7 +23,8 @@
 - Awaiting Android `set()`, `setFromResponse()`, or `clearAll()` now guarantees that its automatic `flush()` has completed, so an immediate app shutdown or restart cannot leave the previous cookie state on disk. The blocking persistence work runs on a worker thread.
 - Awaiting iOS `clearByName(url, name, true)` now waits for every matching WebKit deletion, preventing a following request or WebView load from observing cookies that were still being removed.
 - iOS `get(url, true)` and `clearByName()` now match cookie domains case-insensitively in both Foundation and WebKit flows. Leading-dot domains apply to their root host as well as subdomains, while strict domain boundaries remain enforced.
-- Android `get(url)` now returns stored `domain`, `path`, `expires`, `secure`, and `httpOnly` attributes when the device's Android System WebView provider supports `GET_COOKIE_INFO`. Devices with an older provider transparently retain the previous name/value-only behavior.
+- Android `get(url)` now returns stored `domain`, `path`, `expires`, `secure`, `httpOnly`, and `sameSite` attributes when the device's Android System WebView provider supports `GET_COOKIE_INFO`. Devices with an older provider transparently retain the previous name/value-only behavior.
+- Android `set()` now serializes `expires` directly as an absolute `Expires` attribute instead of temporarily storing an absolute timestamp in `HttpCookie.maxAge`. This preserves future and past-date behavior while allowing the new relative `maxAge` field to use its standards-defined seconds contract without accidentally turning deletion cookies into session cookies.
 - `removeSessionCookies()` now works on iOS and resolves only after session cookies have been removed from the selected stores; persistent cookies remain untouched. Foundation and the default WebKit store are selected by default. On Android, awaiting it now also guarantees that its automatic `flush()` has completed, so an immediate shutdown cannot leave removed session cookies on disk.
 - iOS cookie cleanup no longer invokes the unrelated deprecated `UserDefaults.synchronize()` API.
 
@@ -37,6 +39,7 @@
 - Added Swift coverage for request-header formatting and WebKit domain/path/secure/expiry matching, plus Android coverage for raw header passthrough and empty stores.
 - Added Android coverage for host-only, domain, path, prefixed, and partitioned cookie deletion, unsupported providers, callback ordering, and rejected writes.
 - Added unit coverage for the Expo config plugin and extended the Expo prebuild smoke test to verify its generated Gradle property.
+- Added Swift and Kotlin coverage for `sameSite`, relative `maxAge`, `maxAge`/`expires` precedence, immediate deletion, invalid values, time-zone offsets, Android RFC serialization, and Foundation/WebKit store round trips.
 
 ### Compatibility
 
@@ -54,6 +57,7 @@
 - Clarified that direct Android `flush()` calls are redundant after library mutations and are intended only as a persistence barrier for external shared-store changes.
 - Documented native persistence and expiration behavior, including Android WebView session-cookie restoration and the decision not to maintain a separate automatic cookie backup.
 - Documented AndroidX WebKit overrides for bare React Native, `react-native-webview` interoperability, and Expo prebuild.
+- Documented modern cookie attributes, read-back limitations, and why `partitioned` is not exposed without a reliable top-level partition context.
 
 ---
 

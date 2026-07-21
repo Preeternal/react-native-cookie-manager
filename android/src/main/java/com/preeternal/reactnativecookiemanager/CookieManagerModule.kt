@@ -42,14 +42,9 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     promise: Promise
   ) {
     val cookieString = try {
-      toRFC6265string(makeHTTPCookieObject(url, cookie))
+      serializeCookieForSet(makeCookieSetData(url, cookie))
     } catch (e: Exception) {
       promise.reject("cookie_set_error", e)
-      return
-    }
-
-    if (cookieString == null) {
-      promise.reject("invalid_cookie_values", INVALID_COOKIE_VALUES)
       return
     }
 
@@ -285,6 +280,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     cookieMap.putString("path", cookie.path)
     cookieMap.putBoolean("secure", cookie.secure)
     cookieMap.putBoolean("httpOnly", cookie.httpOnly)
+    cookie.sameSite?.let { cookieMap.putString("sameSite", it) }
     cookie.expiresAt?.let { expiresAt ->
       formatDate(Date(expiresAt))?.let { expires ->
         cookieMap.putString("expires", expires)
@@ -420,6 +416,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     val defaultPath = defaultCookiePath(responseUrl)
 
     for (header in headers) {
+      val sameSite = parseSameSiteAttribute(header)
       val cookies = try {
         HttpCookie.parse(header)
       } catch (e: IllegalArgumentException) {
@@ -447,7 +444,8 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
             version = cookie.version.toString(),
             expiresAt = expiresAt,
             secure = cookie.secure,
-            httpOnly = HTTP_ONLY_SUPPORTED && cookie.isHttpOnly
+            httpOnly = HTTP_ONLY_SUPPORTED && cookie.isHttpOnly,
+            sameSite = sameSite
           )
         )
       }
@@ -508,6 +506,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
       cookieMap.putString("version", cookie.version)
       cookieMap.putBoolean("secure", cookie.secure)
       cookieMap.putBoolean("httpOnly", cookie.httpOnly)
+      cookie.sameSite?.let { cookieMap.putString("sameSite", it) }
       cookie.expiresAt?.let { expiresAt ->
         formatDate(Date(expiresAt))?.let { expires ->
           cookieMap.putString("expires", expires)
@@ -530,7 +529,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   }
 
   @Throws(Exception::class)
-  private fun makeHTTPCookieObject(url: String, cookie: ReadableMap): HttpCookie {
+  private fun makeCookieSetData(url: String, cookie: ReadableMap): CookieSetData {
     val parsedUrl = try {
       URL(url)
     } catch (e: Exception) {
@@ -542,9 +541,10 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
       throw Exception(INVALID_URL_MISSING_HTTP)
     }
 
-    val cookieBuilder = HttpCookie(cookie.getString("name"), cookie.getString("value"))
+    val validatedCookie = HttpCookie(cookie.getString("name"), cookie.getString("value"))
+    var domain: String?
     if (cookie.hasKey("domain") && !isEmpty(cookie.getString("domain"))) {
-      var domain = cookie.getString("domain")
+      domain = cookie.getString("domain")
       if (domain != null && domain.startsWith(".")) {
         domain = domain.substring(1)
       }
@@ -552,34 +552,53 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
       if (domain != null && !domainMatches(topLevelDomain, domain)) {
         throw Exception(String.format(INVALID_DOMAINS, topLevelDomain, domain))
       }
-
-      if (domain != null) {
-        cookieBuilder.domain = domain
-      }
     } else {
-      cookieBuilder.domain = topLevelDomain
+      domain = topLevelDomain
     }
 
-    if (cookie.hasKey("path") && !isEmpty(cookie.getString("path"))) {
-      cookieBuilder.path = cookie.getString("path")
-    }
-
-    if (cookie.hasKey("expires") && !isEmpty(cookie.getString("expires"))) {
-      val date = parseDate(cookie.getString("expires"))
-      if (date != null) {
-        cookieBuilder.maxAge = date.time
+    val path =
+      if (cookie.hasKey("path") && !cookie.isNull("path")) {
+        cookie.getString("path")?.takeUnless { it.isEmpty() }
+      } else {
+        null
       }
-    }
+    val secure = cookie.hasKey("secure") && cookie.getBoolean("secure")
+    val httpOnly =
+      HTTP_ONLY_SUPPORTED && cookie.hasKey("httpOnly") && cookie.getBoolean("httpOnly")
+    val maxAgeSeconds =
+      if (cookie.hasKey("maxAge") && !cookie.isNull("maxAge")) {
+        parseMaxAgeSeconds(cookie.getDouble("maxAge"))
+      } else {
+        null
+      }
+    val expiresAtMillis =
+      if (
+        maxAgeSeconds == null &&
+        cookie.hasKey("expires") &&
+        !isEmpty(cookie.getString("expires"))
+      ) {
+        parseCookieExpires(cookie.getString("expires"))
+      } else {
+        null
+      }
+    val sameSite =
+      if (cookie.hasKey("sameSite") && !cookie.isNull("sameSite")) {
+        parseCookieSameSite(cookie.getString("sameSite") ?: "")
+      } else {
+        null
+      }
 
-    if (cookie.hasKey("secure") && cookie.getBoolean("secure")) {
-      cookieBuilder.secure = true
-    }
-
-    if (HTTP_ONLY_SUPPORTED && cookie.hasKey("httpOnly") && cookie.getBoolean("httpOnly")) {
-      cookieBuilder.isHttpOnly = true
-    }
-
-    return cookieBuilder
+    return CookieSetData(
+      name = validatedCookie.name,
+      value = validatedCookie.value,
+      domain = domain,
+      path = path,
+      expiresAtMillis = expiresAtMillis,
+      maxAgeSeconds = maxAgeSeconds,
+      secure = secure,
+      httpOnly = httpOnly,
+      sameSite = sameSite
+    )
   }
 
   private fun getCookieManager(): CookieManager {
@@ -621,63 +640,13 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     return df
   }
 
-  private fun rfc1123DateFormatter(): DateFormat {
-    val df = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.US)
-    df.timeZone = TimeZone.getTimeZone("GMT")
-    return df
-  }
-
-  private fun parseDate(dateString: String?, rfc1123: Boolean = false): Date? {
-    if (dateString.isNullOrEmpty()) return null
+  private fun formatDate(date: Date): String? {
     return try {
-      (if (rfc1123) rfc1123DateFormatter() else dateFormatter()).parse(dateString)
-    } catch (e: Exception) {
-      Log.i(NAME, e.message ?: "Unable to parse date")
-      null
-    }
-  }
-
-  private fun formatDate(date: Date, rfc1123: Boolean = false): String? {
-    return try {
-      (if (rfc1123) rfc1123DateFormatter() else dateFormatter()).format(date)
+      dateFormatter().format(date)
     } catch (e: Exception) {
       Log.i(NAME, e.message ?: "Unable to format date")
       null
     }
-  }
-
-  private fun toRFC6265string(cookie: HttpCookie?): String? {
-    if (cookie == null) return null
-    val builder = StringBuilder()
-    builder.append(cookie.name).append('=').append(cookie.value)
-
-    if (!cookie.hasExpired()) {
-      val expiresAt = cookie.maxAge
-      if (expiresAt > 0) {
-        val dateString = formatDate(Date(expiresAt), true)
-        if (!isEmpty(dateString)) {
-          builder.append("; expires=").append(dateString)
-        }
-      }
-    }
-
-    if (!isEmpty(cookie.domain)) {
-      builder.append("; domain=").append(cookie.domain)
-    }
-
-    if (!isEmpty(cookie.path)) {
-      builder.append("; path=").append(cookie.path)
-    }
-
-    if (cookie.secure) {
-      builder.append("; secure")
-    }
-
-    if (HTTP_ONLY_SUPPORTED && cookie.isHttpOnly) {
-      builder.append("; httponly")
-    }
-
-    return builder.toString()
   }
 
   private data class ResponseCookie(
@@ -688,7 +657,8 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     val version: String,
     val expiresAt: Long?,
     val secure: Boolean,
-    val httpOnly: Boolean
+    val httpOnly: Boolean,
+    val sameSite: String?
   )
 
   companion object {
