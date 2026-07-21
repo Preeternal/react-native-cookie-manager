@@ -4,6 +4,7 @@ import PackageDescription
 let package = Package(
   name: "CookieManagerSwiftTests",
   platforms: [
+    .iOS(.v15),
     .macOS(.v12),
   ],
   products: [],
@@ -16,6 +17,7 @@ let package = Package(
         "CookieManager.h",
         "CookieManager.mm",
         "CookieManager.swift",
+        "CookieStoreAccess.swift",
         "CookieStoreClearLogic.swift",
         "CookieSessionLogic.swift",
       ],
@@ -30,6 +32,7 @@ let package = Package(
         "CookieManager.h",
         "CookieManager.mm",
         "CookieManager.swift",
+        "CookieStoreAccess.swift",
         "CookieStoreClearLogic.swift",
       ],
       sources: ["CookieSessionLogic.swift"]
@@ -43,6 +46,7 @@ let package = Package(
         "CookieManager.h",
         "CookieManager.mm",
         "CookieManager.swift",
+        "CookieStoreAccess.swift",
         "CookieSessionLogic.swift",
       ],
       sources: ["CookieStoreClearLogic.swift"]
@@ -56,9 +60,24 @@ let package = Package(
         "CookieManager.mm",
         "CookieManager.swift",
         "CookieSessionLogic.swift",
+        "CookieStoreAccess.swift",
         "CookieStoreClearLogic.swift",
       ],
       sources: ["CookieCollectionLogic.swift"]
+    ),
+    .target(
+      name: "CookieStoreAccess",
+      path: "ios",
+      exclude: [
+        "CookieCollectionLogic.swift",
+        "CookieDomainLogic.swift",
+        "CookieManager.h",
+        "CookieManager.mm",
+        "CookieManager.swift",
+        "CookieSessionLogic.swift",
+        "CookieStoreClearLogic.swift",
+      ],
+      sources: ["CookieStoreAccess.swift"]
     ),
     .testTarget(
       name: "CookieDomainLogicTests",
@@ -79,6 +98,11 @@ let package = Package(
       name: "CookieCollectionLogicTests",
       dependencies: ["CookieCollectionLogic"],
       path: "swift-tests/CookieCollectionLogicTests"
+    ),
+    .testTarget(
+      name: "CookieStoreAccessIntegrationTests",
+      dependencies: ["CookieStoreAccess"],
+      path: "swift-tests/CookieStoreAccessIntegrationTests"
     ),
   ]
 )

@@ -30,6 +30,7 @@
 - Added Swift coverage for full-store cleanup ordering and WebKit completion.
 - Added Swift regression coverage for mixed-case, leading-dot root, parent-domain, and substring-rejection matching.
 - Added Swift and Kotlin regression coverage for duplicate-name array reads and legacy object collapsing.
+- Added Foundation and WebKit store integration tests on macOS and iOS Simulator, covering duplicate-name round trips, store selection, and completion-aware deletion/cleanup.
 
 ### Compatibility
 
