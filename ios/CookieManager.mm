@@ -72,6 +72,12 @@ RCT_EXPORT_MODULE();
   [_impl clearAll:[useWebKit boolValue] resolve:resolve reject:reject];
 }
 
+- (void)handleClearAllStores:(RCTPromiseResolveBlock)resolve
+                      reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl clearAllStoresWithResolve:resolve reject:reject];
+}
+
 - (void)handleClearByName:(NSString *)url
                      name:(NSString *)name
                 useWebKit:(NSNumber *)useWebKit
@@ -176,6 +182,11 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
   [self handleClearAll:useWebKit resolve:resolve reject:reject];
 }
 
+- (void)clearAllStores:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
+{
+  [self handleClearAllStores:resolve reject:reject];
+}
+
 - (void)clearByName:(NSString *)url
                name:(NSString *)name
           useWebKit:(NSNumber *)useWebKit
@@ -262,6 +273,13 @@ RCT_EXPORT_METHOD(clearAll
                   : (RCTPromiseRejectBlock)reject)
 {
   [self handleClearAll:@(useWebKit) resolve:resolve reject:reject];
+}
+
+RCT_EXPORT_METHOD(clearAllStores
+                  : (RCTPromiseResolveBlock)resolve reject
+                  : (RCTPromiseRejectBlock)reject)
+{
+  [self handleClearAllStores:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(clearByName

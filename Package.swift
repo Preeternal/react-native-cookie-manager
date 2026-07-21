@@ -15,6 +15,7 @@ let package = Package(
         "CookieManager.h",
         "CookieManager.mm",
         "CookieManager.swift",
+        "CookieStoreClearLogic.swift",
         "CookieSessionLogic.swift",
       ],
       sources: ["CookieDomainLogic.swift"]
@@ -27,8 +28,21 @@ let package = Package(
         "CookieManager.h",
         "CookieManager.mm",
         "CookieManager.swift",
+        "CookieStoreClearLogic.swift",
       ],
       sources: ["CookieSessionLogic.swift"]
+    ),
+    .target(
+      name: "CookieStoreClearLogic",
+      path: "ios",
+      exclude: [
+        "CookieDomainLogic.swift",
+        "CookieManager.h",
+        "CookieManager.mm",
+        "CookieManager.swift",
+        "CookieSessionLogic.swift",
+      ],
+      sources: ["CookieStoreClearLogic.swift"]
     ),
     .testTarget(
       name: "CookieDomainLogicTests",
@@ -39,6 +53,11 @@ let package = Package(
       name: "CookieSessionLogicTests",
       dependencies: ["CookieSessionLogic"],
       path: "swift-tests/CookieSessionLogicTests"
+    ),
+    .testTarget(
+      name: "CookieStoreClearLogicTests",
+      dependencies: ["CookieStoreClearLogic"],
+      path: "swift-tests/CookieStoreClearLogicTests"
     ),
   ]
 )

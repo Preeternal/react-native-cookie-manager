@@ -4,6 +4,10 @@
 
 ## v6.4.0 (Unreleased)
 
+### Added
+
+- Added `clearAllStores()` for deterministic full-store cleanup. It clears Foundation and the default WebKit store on iOS, or the shared cookie store on Android, and resolves only after native cleanup (including Android persistence) completes. Existing `clearAll(useWebKit?)` behavior is unchanged.
+
 ### Fixed
 
 - Android `getFromResponse()` now performs the inherited GET request instead of returning the input URL.
@@ -13,12 +17,14 @@
 - Awaiting Android `set()`, `setFromResponse()`, or `clearAll()` now guarantees that its automatic `flush()` has completed, so an immediate app shutdown or restart cannot leave the previous cookie state on disk. The blocking persistence work runs on a worker thread.
 - Awaiting iOS `clearByName(url, name, true)` now waits for every matching WebKit deletion, preventing a following request or WebView load from observing cookies that were still being removed.
 - Android `get(url)` now returns stored `domain`, `path`, `expires`, `secure`, and `httpOnly` attributes when the installed WebView supports `GET_COOKIE_INFO`. Older WebViews transparently retain the previous name/value-only behavior.
-- `removeSessionCookies()` now works on iOS and resolves only after session cookies have been removed from both Foundation and the default WebKit store; persistent cookies remain untouched. Both stores are cleared by default, with the additive `iosCookieStore` option available for selecting only `foundation` or `webKit`. On Android, awaiting it now also guarantees that its automatic `flush()` has completed, so an immediate shutdown cannot leave removed session cookies on disk.
+- `removeSessionCookies()` now works on iOS and resolves only after session cookies have been removed from the selected stores; persistent cookies remain untouched. Foundation and the default WebKit store are selected by default. On Android, awaiting it now also guarantees that its automatic `flush()` has completed, so an immediate shutdown cannot leave removed session cookies on disk.
+- iOS cookie cleanup no longer invokes the unrelated deprecated `UserDefaults.synchronize()` API.
 
 ### Tests
 
 - Added Android unit coverage for the detailed cookie read, both fallback paths, empty results, attribute parsing, expiration precedence/conversion, and legacy behavior.
 - Added Swift coverage for Foundation-only, WebKit-only, and both-store session cleanup, persistent-cookie preservation, and asynchronous deletion completion ordering.
+- Added Swift coverage for full-store cleanup ordering and WebKit completion.
 
 ### Compatibility
 

@@ -30,6 +30,7 @@ const removeSessionCookies = (
 const CookieManager = {
   getAll: (useWebKit = false) => CookieManagerNative.getAll(useWebKit),
   clearAll: (useWebKit = false) => CookieManagerNative.clearAll(useWebKit),
+  clearAllStores: () => CookieManagerNative.clearAllStores(),
   get: (url: string, useWebKit = false) =>
     CookieManagerNative.getCookies(url, useWebKit),
   set: (url: string, cookie: Cookie, useWebKit = false) =>

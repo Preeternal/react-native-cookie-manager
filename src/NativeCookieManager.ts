@@ -23,6 +23,7 @@ export interface Spec extends TurboModule {
    */
   getFromResponse(url: string): Promise<Cookies>;
   clearAll(useWebKit?: boolean): Promise<boolean>;
+  clearAllStores(): Promise<boolean>;
   flush(): Promise<void>;
   removeSessionCookies(
     iosClearFoundation: boolean,

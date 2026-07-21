@@ -110,10 +110,19 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   }
 
   override fun clearAll(useWebKit: Boolean?, promise: Promise) {
+    clearAllCookies(promise, returnRemovalResult = true)
+  }
+
+  override fun clearAllStores(promise: Promise) {
+    clearAllCookies(promise, returnRemovalResult = false)
+  }
+
+  private fun clearAllCookies(promise: Promise, returnRemovalResult: Boolean) {
     try {
       val cookieManager = getCookieManager()
-      cookieManager.removeAllCookies {
-        flushAndResolve(cookieManager, it, promise, "clear_all_error")
+      cookieManager.removeAllCookies { removed ->
+        val result = if (returnRemovalResult) removed else true
+        flushAndResolve(cookieManager, result, promise, "clear_all_error")
       }
     } catch (e: Exception) {
       promise.reject("clear_all_error", e)

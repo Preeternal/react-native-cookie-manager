@@ -161,22 +161,36 @@ public class CookieManagerImpl: NSObject {
         reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
         return
       }
-      DispatchQueue.main.async {
-        let websiteDataTypes: Set<String> = [WKWebsiteDataTypeCookies]
-        let dateFrom = Date(timeIntervalSince1970: 0)
-        WKWebsiteDataStore.default().removeData(
-          ofTypes: websiteDataTypes,
-          modifiedSince: dateFrom
-        ) {
-          resolve(true)
-        }
+      clearWebKitCookies {
+        resolve(true)
       }
     } else {
-      let cookieStorage = HTTPCookieStorage.shared
-      cookieStorage.cookies?.forEach { cookieStorage.deleteCookie($0) }
-      UserDefaults.standard.synchronize()
+      clearFoundationCookies()
       resolve(true)
     }
+  }
+
+  @objc(clearAllStoresWithResolve:reject:)
+  public func clearAllStores(
+    resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    guard #available(iOS 11.0, *) else {
+      reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
+      return
+    }
+
+    CookieStoreClearLogic.clearAllStores(
+      clearFoundation: {
+        self.clearFoundationCookies()
+      },
+      clearWebKit: { completion in
+        self.clearWebKitCookies(completion: completion)
+      },
+      completion: {
+        resolve(true)
+      }
+    )
   }
 
   @objc(clearByName:name:useWebKit:resolve:reject:)
@@ -273,6 +287,24 @@ public class CookieManagerImpl: NSObject {
     reject: @escaping RCTPromiseRejectBlock
   ) {
     resolve(true)
+  }
+
+  private func clearFoundationCookies() {
+    let cookieStorage = HTTPCookieStorage.shared
+    cookieStorage.cookies?.forEach { cookieStorage.deleteCookie($0) }
+  }
+
+  @available(iOS 11.0, *)
+  private func clearWebKitCookies(completion: @escaping () -> Void) {
+    DispatchQueue.main.async {
+      let websiteDataTypes: Set<String> = [WKWebsiteDataTypeCookies]
+      let dateFrom = Date(timeIntervalSince1970: 0)
+      WKWebsiteDataStore.default().removeData(
+        ofTypes: websiteDataTypes,
+        modifiedSince: dateFrom,
+        completionHandler: completion
+      )
+    }
   }
 
   @objc(removeSessionCookiesWithClearFoundation:clearWebKit:resolve:reject:)

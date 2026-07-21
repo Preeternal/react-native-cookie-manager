@@ -107,17 +107,8 @@ export default function App() {
   const clearCookies = useCallback(async () => {
     setStatus('Clearing cookies');
 
-    const results = await Promise.allSettled([
-      CookieManager.clearAll(false),
-      CookieManager.clearAll(true),
-    ]);
-
-    const rejected = results.filter((result) => result.status === 'rejected');
-    if (rejected.length > 0) {
-      setStatus(`Clear finished with errors (${rejected.length})`);
-    } else {
-      setStatus('All cookies cleared');
-    }
+    await CookieManager.clearAllStores();
+    setStatus('All cookies cleared');
 
     await refreshCookies(inspectUrl);
   }, [inspectUrl, refreshCookies]);
