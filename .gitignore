@@ -87,3 +87,6 @@ android/generated
 
 # React Native Nitro Modules
 nitrogen/
+
+# Local notes
+/docs/local-*.md
