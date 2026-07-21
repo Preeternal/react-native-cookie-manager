@@ -134,7 +134,10 @@ public class CookieManagerImpl: NSObject {
         WKWebsiteDataStore.default().httpCookieStore.getAllCookies { allCookies in
           var cookies: [String: Any] = [:]
           for cookie in allCookies
-            where self.isMatchingDomain(originDomain: topLevelDomain, cookieDomain: cookie.domain) {
+            where CookieDomainLogic.isMatchingDomain(
+              originDomain: topLevelDomain,
+              cookieDomain: cookie.domain
+            ) {
             cookies[cookie.name] = self.createCookieData(cookie)
           }
           resolve(cookies)
@@ -221,7 +224,7 @@ public class CookieManagerImpl: NSObject {
           let store = WKWebsiteDataStore.default().httpCookieStore
           let matchingCookies = allCookies.filter { cookie in
             cookie.name == name &&
-              self.isMatchingDomain(
+              CookieDomainLogic.isMatchingDomain(
                 originDomain: topLevelDomain,
                 cookieDomain: cookie.domain
               )
@@ -250,7 +253,7 @@ public class CookieManagerImpl: NSObject {
       storage.cookies?.forEach { cookie in
         if cookie.name == name,
            let host = parsedUrl.host,
-           self.isMatchingDomain(originDomain: host, cookieDomain: cookie.domain) {
+           CookieDomainLogic.isMatchingDomain(originDomain: host, cookieDomain: cookie.domain) {
           storage.deleteCookie(cookie)
           found = true
         }
@@ -376,7 +379,7 @@ public class CookieManagerImpl: NSObject {
     let httpOnly = props["httpOnly"] as? Bool ?? false
 
     if let rawDomain = domain {
-      if !CookieDomainLogic.isCookieDomainValid(host: topLevelDomain, cookieDomain: rawDomain) {
+      if !CookieDomainLogic.isMatchingDomain(originDomain: topLevelDomain, cookieDomain: rawDomain) {
         let reason = String(format: Self.invalidDomains, topLevelDomain, rawDomain)
         throw NSError(domain: "CookieManager", code: -1, userInfo: [NSLocalizedDescriptionKey: reason])
       }
@@ -432,10 +435,6 @@ public class CookieManagerImpl: NSObject {
 
   private func parseDate(_ dateString: String) -> Date? {
     formatter.date(from: dateString)
-  }
-
-  private func isMatchingDomain(originDomain: String, cookieDomain: String) -> Bool {
-    CookieDomainLogic.isMatchingDomain(originDomain: originDomain, cookieDomain: cookieDomain)
   }
 
   private static let notAvailableErrorMessage =

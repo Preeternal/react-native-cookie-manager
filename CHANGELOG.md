@@ -17,6 +17,7 @@
 - Awaiting Android `getFromResponse()` now guarantees that cookies stored from the final response or any redirect have been flushed to persistent storage; the blocking persistence work runs on a worker thread.
 - Awaiting Android `set()`, `setFromResponse()`, or `clearAll()` now guarantees that its automatic `flush()` has completed, so an immediate app shutdown or restart cannot leave the previous cookie state on disk. The blocking persistence work runs on a worker thread.
 - Awaiting iOS `clearByName(url, name, true)` now waits for every matching WebKit deletion, preventing a following request or WebView load from observing cookies that were still being removed.
+- iOS `get(url, true)` and `clearByName()` now match cookie domains case-insensitively in both Foundation and WebKit flows. Leading-dot domains apply to their root host as well as subdomains, while strict domain boundaries remain enforced.
 - Android `get(url)` now returns stored `domain`, `path`, `expires`, `secure`, and `httpOnly` attributes when the installed WebView supports `GET_COOKIE_INFO`. Older WebViews transparently retain the previous name/value-only behavior.
 - `removeSessionCookies()` now works on iOS and resolves only after session cookies have been removed from the selected stores; persistent cookies remain untouched. Foundation and the default WebKit store are selected by default. On Android, awaiting it now also guarantees that its automatic `flush()` has completed, so an immediate shutdown cannot leave removed session cookies on disk.
 - iOS cookie cleanup no longer invokes the unrelated deprecated `UserDefaults.synchronize()` API.
@@ -26,6 +27,7 @@
 - Added Android unit coverage for the detailed cookie read, both fallback paths, empty results, attribute parsing, expiration precedence/conversion, and legacy behavior.
 - Added Swift coverage for Foundation-only, WebKit-only, and both-store session cleanup, persistent-cookie preservation, and asynchronous deletion completion ordering.
 - Added Swift coverage for full-store cleanup ordering and WebKit completion.
+- Added Swift regression coverage for mixed-case, leading-dot root, parent-domain, and substring-rejection matching.
 
 ### Compatibility
 
