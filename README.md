@@ -101,6 +101,9 @@ try {
 - If your app mixes both (native requests and embedded web), call the same operation twice: once with `useWebKit: true` (for WKWebView), once with `useWebKit: false` (for URLSession).
 - On Android the flag is ignored; WebView and native use the same store.
 
+> [!WARNING]
+> On Android, `react-native-webview`'s `incognito` mode currently clears the shared app-wide cookie store, including cookies used by React Native networking. Avoid it when your app relies on authenticated native requests. See [react-native-webview#3988](https://github.com/react-native-webview/react-native-webview/issues/3988).
+
 ### Cookie shape
 
 ```ts
