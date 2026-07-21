@@ -13,10 +13,12 @@
 - Awaiting Android `set()`, `setFromResponse()`, or `clearAll()` now guarantees that its automatic `flush()` has completed, so an immediate app shutdown or restart cannot leave the previous cookie state on disk. The blocking persistence work runs on a worker thread.
 - Awaiting iOS `clearByName(url, name, true)` now waits for every matching WebKit deletion, preventing a following request or WebView load from observing cookies that were still being removed.
 - Android `get(url)` now returns stored `domain`, `path`, `expires`, `secure`, and `httpOnly` attributes when the installed WebView supports `GET_COOKIE_INFO`. Older WebViews transparently retain the previous name/value-only behavior.
+- `removeSessionCookies()` now works on iOS and resolves only after session cookies have been removed from both Foundation and the default WebKit store; persistent cookies remain untouched. Both stores are cleared by default, with the additive `iosCookieStore` option available for selecting only `foundation` or `webKit`. On Android, awaiting it now also guarantees that its automatic `flush()` has completed, so an immediate shutdown cannot leave removed session cookies on disk.
 
 ### Tests
 
 - Added Android unit coverage for the detailed cookie read, both fallback paths, empty results, attribute parsing, expiration precedence/conversion, and legacy behavior.
+- Added Swift coverage for Foundation-only, WebKit-only, and both-store session cleanup, persistent-cookie preservation, and asynchronous deletion completion ordering.
 
 ### Compatibility
 

@@ -129,9 +129,16 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  override fun removeSessionCookies(promise: Promise) {
+  override fun removeSessionCookies(
+    iosClearFoundation: Boolean,
+    iosClearWebKit: Boolean,
+    promise: Promise
+  ) {
     try {
-      getCookieManager().removeSessionCookies { promise.resolve(it) }
+      val cookieManager = getCookieManager()
+      cookieManager.removeSessionCookies {
+        flushAndResolve(cookieManager, it, promise, "remove_session_error")
+      }
     } catch (e: Exception) {
       promise.reject("remove_session_error", e)
     }

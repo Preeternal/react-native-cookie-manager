@@ -4,6 +4,29 @@ import CookieManagerNative, {
   type Cookies,
 } from './NativeCookieManager';
 
+export type IOSCookieStore = 'foundation' | 'webKit' | 'both';
+
+export type RemoveSessionCookiesOptions = {
+  iosCookieStore?: IOSCookieStore;
+};
+
+const removeSessionCookies = (
+  options: RemoveSessionCookiesOptions = {}
+): Promise<boolean> => {
+  switch (options.iosCookieStore ?? 'both') {
+    case 'foundation':
+      return CookieManagerNative.removeSessionCookies(true, false);
+    case 'webKit':
+      return CookieManagerNative.removeSessionCookies(false, true);
+    case 'both':
+      return CookieManagerNative.removeSessionCookies(true, true);
+    default:
+      return Promise.reject(
+        new Error('iosCookieStore must be "foundation", "webKit", or "both"')
+      );
+  }
+};
+
 const CookieManager = {
   getAll: (useWebKit = false) => CookieManagerNative.getAll(useWebKit),
   clearAll: (useWebKit = false) => CookieManagerNative.clearAll(useWebKit),
@@ -15,10 +38,7 @@ const CookieManager = {
     CookieManagerNative.clearByName(url, name, useWebKit),
   flush: () =>
     Platform.OS === 'android' ? CookieManagerNative.flush() : Promise.resolve(),
-  removeSessionCookies: () =>
-    Platform.OS === 'android'
-      ? CookieManagerNative.removeSessionCookies()
-      : Promise.resolve(false),
+  removeSessionCookies,
   setFromResponse: (url: string, cookie: string) =>
     CookieManagerNative.setFromResponse(url, cookie),
   /**

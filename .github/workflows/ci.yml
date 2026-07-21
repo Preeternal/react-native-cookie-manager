@@ -203,7 +203,7 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      - name: Run Swift domain tests
+      - name: Run Swift tests
         run: |
           CLANG_MODULE_CACHE_PATH="$RUNNER_TEMP/clang-module-cache" \
           SWIFT_MODULECACHE_PATH="$RUNNER_TEMP/swift-module-cache" \

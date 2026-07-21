@@ -11,13 +11,34 @@ let package = Package(
     .target(
       name: "CookieDomainLogic",
       path: "ios",
-      exclude: ["CookieManager.h", "CookieManager.mm", "CookieManager.swift"],
+      exclude: [
+        "CookieManager.h",
+        "CookieManager.mm",
+        "CookieManager.swift",
+        "CookieSessionLogic.swift",
+      ],
       sources: ["CookieDomainLogic.swift"]
+    ),
+    .target(
+      name: "CookieSessionLogic",
+      path: "ios",
+      exclude: [
+        "CookieDomainLogic.swift",
+        "CookieManager.h",
+        "CookieManager.mm",
+        "CookieManager.swift",
+      ],
+      sources: ["CookieSessionLogic.swift"]
     ),
     .testTarget(
       name: "CookieDomainLogicTests",
       dependencies: ["CookieDomainLogic"],
       path: "swift-tests/CookieDomainLogicTests"
+    ),
+    .testTarget(
+      name: "CookieSessionLogicTests",
+      dependencies: ["CookieSessionLogic"],
+      path: "swift-tests/CookieSessionLogicTests"
     ),
   ]
 )

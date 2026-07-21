@@ -81,7 +81,7 @@ await CookieManager.clearAll();
 // Android only: persist cookies to storage
 await CookieManager.flush();
 
-// Android only: remove session cookies (cookies without an expiry date)
+// Remove session cookies (cookies without an expiry date)
 await CookieManager.removeSessionCookies();
 ```
 
@@ -110,11 +110,13 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 | `getAll(useWebKit?)` | `Promise<Cookies>` | Reads all cookies (iOS; rejects on Android). |
 | `clearByName(url, name, useWebKit?)` | `Promise<boolean>` | Clears matching cookies by name (iOS; rejects on Android). |
 | `flush()` | `Promise<void>` | Persists cookies to storage (Android; no-op on iOS). |
-| `removeSessionCookies()` | `Promise<boolean>` | Removes cookies without an expiry date (Android; returns `false` on iOS). |
+| `removeSessionCookies(options?)` | `Promise<boolean>` | Removes cookies without an expiry date (Android store; Foundation and default WebKit stores on iOS). |
 | `setFromResponse(url, cookieHeader)` | `Promise<boolean>` | Imports one raw `Set-Cookie` header value. |
 | `getFromResponse(url)` | `Promise<Cookies>` | Deprecated; performs a GET and returns cookies from the final response. |
 
 `useWebKit` applies only to iOS (switches to `WKHTTPCookieStore`); on Android it is ignored because WebView and native share a single cookie store.
+
+`removeSessionCookies()` clears both iOS stores by default. Pass `{ iosCookieStore: 'foundation' }` or `{ iosCookieStore: 'webKit' }` to limit cleanup to one store. Android ignores this iOS-only option.
 
 ### WebKit on iOS
 

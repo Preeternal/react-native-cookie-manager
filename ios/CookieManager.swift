@@ -275,33 +275,43 @@ public class CookieManagerImpl: NSObject {
     resolve(true)
   }
 
-  @objc(removeSessionCookiesWithResolve:reject:)
+  @objc(removeSessionCookiesWithClearFoundation:clearWebKit:resolve:reject:)
   public func removeSessionCookies(
+    clearFoundation: Bool,
+    clearWebKit: Bool,
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
-    var removed = false
     let storage = HTTPCookieStorage.shared
-    storage.cookies?.forEach { cookie in
-      if cookie.isSessionOnly || cookie.expiresDate == nil {
+    CookieSessionLogic.removeSessionCookies(
+      foundationCookies: storage.cookies ?? [],
+      clearFoundation: clearFoundation,
+      clearWebKit: clearWebKit,
+      deleteFoundation: { cookie in
         storage.deleteCookie(cookie)
-        removed = true
-      }
-    }
-
-    if #available(iOS 11.0, *) {
-      DispatchQueue.main.async {
-        WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
-          var updatedRemoved = removed
-          let store = WKWebsiteDataStore.default().httpCookieStore
-          for cookie in cookies where cookie.expiresDate == nil {
-            store.delete(cookie, completionHandler: nil)
-            updatedRemoved = true
-          }
-          resolve(updatedRemoved)
+      },
+      loadWebKitCookies: { completion in
+        guard #available(iOS 11.0, *) else {
+          completion([])
+          return
+        }
+        DispatchQueue.main.async {
+          WKWebsiteDataStore.default().httpCookieStore.getAllCookies(completion)
+        }
+      },
+      deleteWebKitCookie: { cookie, completion in
+        guard #available(iOS 11.0, *) else {
+          completion()
+          return
+        }
+        DispatchQueue.main.async {
+          WKWebsiteDataStore.default().httpCookieStore.delete(
+            cookie,
+            completionHandler: completion
+          )
         }
       }
-    } else {
+    ) { removed in
       resolve(removed)
     }
   }

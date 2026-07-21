@@ -94,10 +94,15 @@ RCT_EXPORT_MODULE();
   [_impl flushWithResolve:resolve reject:reject];
 }
 
-- (void)handleRemoveSessionCookies:(RCTPromiseResolveBlock)resolve
+- (void)handleRemoveSessionCookies:(BOOL)clearFoundation
+                       clearWebKit:(BOOL)clearWebKit
+                           resolve:(RCTPromiseResolveBlock)resolve
                             reject:(RCTPromiseRejectBlock)reject
 {
-  [_impl removeSessionCookiesWithResolve:resolve reject:reject];
+  [_impl removeSessionCookiesWithClearFoundation:clearFoundation
+                                     clearWebKit:clearWebKit
+                                        resolve:resolve
+                                         reject:reject];
 }
 
 #if RCT_NEW_ARCH_ENABLED
@@ -192,9 +197,15 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
   [self handleFlushWithResolve:resolve reject:reject];
 }
 
-- (void)removeSessionCookies:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
+- (void)removeSessionCookies:(BOOL)iosClearFoundation
+           iosClearWebKit:(BOOL)iosClearWebKit
+                  resolve:(RCTPromiseResolveBlock)resolve
+                   reject:(RCTPromiseRejectBlock)reject
 {
-  [self handleRemoveSessionCookies:resolve reject:reject];
+  [self handleRemoveSessionCookies:iosClearFoundation
+                        clearWebKit:iosClearWebKit
+                            resolve:resolve
+                             reject:reject];
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
@@ -279,10 +290,15 @@ RCT_EXPORT_METHOD(flush
 }
 
 RCT_EXPORT_METHOD(removeSessionCookies
+                  : (BOOL)iosClearFoundation iosClearWebKit
+                  : (BOOL)iosClearWebKit resolve
                   : (RCTPromiseResolveBlock)resolve reject
                   : (RCTPromiseRejectBlock)reject)
 {
-  [self handleRemoveSessionCookies:resolve reject:reject];
+  [self handleRemoveSessionCookies:iosClearFoundation
+                        clearWebKit:iosClearWebKit
+                            resolve:resolve
+                             reject:reject];
 }
 
 #endif
