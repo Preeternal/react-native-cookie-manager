@@ -4,6 +4,8 @@ import android.os.Build
 import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.ValueCallback
+import androidx.webkit.CookieManagerCompat
+import androidx.webkit.WebViewFeature
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -69,8 +71,13 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     }
 
     try {
-      val cookiesString = getCookieManager().getCookie(url)
-      promise.resolve(createCookieList(cookiesString))
+      val cookieManager = getCookieManager()
+      val cookieHeaders = readCookieHeaders(
+        supportsDetailedRead = WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO),
+        detailedReader = { CookieManagerCompat.getCookieInfo(cookieManager, url) },
+        legacyReader = { cookieManager.getCookie(url) }
+      )
+      promise.resolve(createCookieList(cookieHeaders))
     } catch (e: Exception) {
       promise.reject("get_cookie_error", e)
     }
@@ -157,24 +164,23 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  private fun createCookieList(allCookies: String?): WritableMap {
+  private fun createCookieList(cookieReadResult: CookieReadResult): WritableMap {
     val allCookiesMap = Arguments.createMap()
 
-    if (!allCookies.isNullOrEmpty()) {
-      val cookieHeaders = allCookies.split(";")
-      for (singleCookie in cookieHeaders) {
-        val cookies = HttpCookie.parse(singleCookie)
-        for (cookie in cookies) {
-          if (cookie != null) {
-            val name = cookie.name
-            val value = cookie.value
-            if (!isEmpty(name) && !isEmpty(value)) {
-              val cookieMap = createCookieData(cookie)
-              allCookiesMap.putMap(name, cookieMap)
-            }
-          }
+    for (cookie in parseCookieReadResult(cookieReadResult)) {
+      val cookieMap = Arguments.createMap()
+      cookieMap.putString("name", cookie.name)
+      cookieMap.putString("value", cookie.value)
+      cookieMap.putString("domain", cookie.domain)
+      cookieMap.putString("path", cookie.path)
+      cookieMap.putBoolean("secure", cookie.secure)
+      cookieMap.putBoolean("httpOnly", cookie.httpOnly)
+      cookie.expiresAt?.let { expiresAt ->
+        formatDate(Date(expiresAt))?.let { expires ->
+          cookieMap.putString("expires", expires)
         }
       }
+      allCookiesMap.putMap(cookie.name, cookieMap)
     }
 
     return allCookiesMap
@@ -453,28 +459,6 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     }
 
     return cookieBuilder
-  }
-
-  private fun createCookieData(cookie: HttpCookie): WritableMap {
-    val cookieMap = Arguments.createMap()
-    cookieMap.putString("name", cookie.name)
-    cookieMap.putString("value", cookie.value)
-    cookieMap.putString("domain", cookie.domain)
-    cookieMap.putString("path", cookie.path)
-    cookieMap.putBoolean("secure", cookie.secure)
-    if (HTTP_ONLY_SUPPORTED) {
-      cookieMap.putBoolean("httpOnly", cookie.isHttpOnly)
-    }
-
-    val expires = cookie.maxAge
-    if (expires > 0) {
-      val expiry = formatDate(Date(expires))
-      if (!isEmpty(expiry)) {
-        cookieMap.putString("expires", expiry)
-      }
-    }
-
-    return cookieMap
   }
 
   private fun getCookieManager(): CookieManager {

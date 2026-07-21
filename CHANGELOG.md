@@ -12,6 +12,15 @@
 - On iOS, `getFromResponse()` values are now `Cookie` objects instead of raw strings; read the cookie value through `.value`. This aligns runtime behavior with the existing TypeScript contract.
 - Awaiting Android `set()`, `setFromResponse()`, or `clearAll()` now guarantees that its automatic `flush()` has completed, so an immediate app shutdown or restart cannot leave the previous cookie state on disk. The blocking persistence work runs on a worker thread.
 - Awaiting iOS `clearByName(url, name, true)` now waits for every matching WebKit deletion, preventing a following request or WebView load from observing cookies that were still being removed.
+- Android `get(url)` now returns stored `domain`, `path`, `expires`, `secure`, and `httpOnly` attributes when the installed WebView supports `GET_COOKIE_INFO`. Older WebViews transparently retain the previous name/value-only behavior.
+
+### Tests
+
+- Added Android unit coverage for the detailed cookie read, both fallback paths, empty results, attribute parsing, expiration precedence/conversion, and legacy behavior.
+
+### Compatibility
+
+- Android now depends on `androidx.webkit:webkit:1.16.0` (`minSdk 24`, `compileSdk 33+`, and Android Gradle Plugin 7.2+); the library defaults remain `minSdk 24`, `compileSdk 36`, and AGP 8.7.2.
 
 ### Deprecated
 

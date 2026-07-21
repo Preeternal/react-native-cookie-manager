@@ -138,6 +138,8 @@ type Cookie = {
 };
 ```
 
+On Android, metadata is populated when the installed WebView supports `GET_COOKIE_INFO`. Older WebViews fall back to legacy name/value parsing, so `domain`, `path`, and `expires` may be unavailable, while `secure` and `httpOnly` should not be treated as authoritative.
+
 ## Contributing
 
 - [Development workflow](CONTRIBUTING.md#development-workflow)
