@@ -131,7 +131,51 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   }
 
   override fun clearByName(url: String, name: String, useWebKit: Boolean?, promise: Promise) {
-    promise.reject("not_supported", CLEAR_BY_NAME_NOT_SUPPORTED)
+    if (url.isEmpty()) {
+      promise.reject("invalid_url", INVALID_URL_MISSING_HTTP)
+      return
+    }
+
+    val cookieManager = try {
+      getCookieManager()
+    } catch (e: Exception) {
+      promise.reject("clear_by_name_error", e)
+      return
+    }
+
+    val plan = try {
+      planCookieDeletion(
+        name = name,
+        supportsDetailedRead = WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO),
+        detailedReader = { CookieManagerCompat.getCookieInfo(cookieManager, url) }
+      )
+    } catch (e: Exception) {
+      promise.reject("clear_by_name_error", e)
+      return
+    }
+
+    when (plan) {
+      CookieDeletionPlan.Unsupported -> {
+        promise.reject("not_supported", CLEAR_BY_NAME_NOT_SUPPORTED)
+      }
+      is CookieDeletionPlan.Ready -> executeCookieDeletion(
+        headers = plan.headers,
+        setter = { header, callback ->
+          cookieManager.setCookie(url, header) { accepted -> callback(accepted == true) }
+        }
+      ) { result ->
+        result.fold(
+          onSuccess = { removed ->
+            if (removed) {
+              flushAndResolve(cookieManager, true, promise, "clear_by_name_error")
+            } else {
+              promise.resolve(false)
+            }
+          },
+          onFailure = { error -> promise.reject("clear_by_name_error", error) }
+        )
+      }
+    }
   }
 
   override fun clearAll(useWebKit: Boolean?, promise: Promise) {
@@ -652,7 +696,8 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
       "Invalid URL: It may be missing a protocol (ex. http:// or https://)."
     private const val INVALID_COOKIE_VALUES = "Unable to add cookie - invalid values"
     private const val GET_ALL_NOT_SUPPORTED = "Get all cookies not supported for Android (iOS only)"
-    private const val CLEAR_BY_NAME_NOT_SUPPORTED = "Cannot remove a single cookie by name on Android"
+    private const val CLEAR_BY_NAME_NOT_SUPPORTED =
+      "clearByName requires GET_COOKIE_INFO support from the device's Android System WebView provider"
     private const val INVALID_DOMAINS =
       "Cookie URL host %s and domain %s mismatched. The cookie won't set correctly."
     private const val FETCH_TIMEOUT_MILLISECONDS = 60_000

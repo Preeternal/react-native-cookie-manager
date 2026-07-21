@@ -9,6 +9,7 @@
 - Added `clearAllStores()` for deterministic full-store cleanup. It clears Foundation and the default WebKit store on iOS, or the shared cookie store on Android, and resolves only after native cleanup (including Android persistence) completes. Existing `clearAll(useWebKit?)` behavior is unchanged.
 - Added `getAsArray()` on both platforms and iOS-only `getAllAsArray()` to preserve cookies that share a name but differ by domain or path. Existing `get()` and `getAll()` retain their upstream-compatible last-cookie-wins object shape.
 - Added `getCookieHeader(url, useWebKit?)` to read matching cookies as a ready-to-use `Cookie` request-header value. It preserves duplicate names and returns an empty string when no cookies match.
+- Added Android support for `clearByName(url, name)`. When the device's Android System WebView provider supports `GET_COOKIE_INFO`, it expires every same-name domain/path variant applicable to the supplied URL, waits for all deletion callbacks, then flushes persistence. Devices with an older provider reject with `not_supported` instead of risking incomplete deletion.
 
 ### Fixed
 
@@ -20,7 +21,7 @@
 - Awaiting Android `set()`, `setFromResponse()`, or `clearAll()` now guarantees that its automatic `flush()` has completed, so an immediate app shutdown or restart cannot leave the previous cookie state on disk. The blocking persistence work runs on a worker thread.
 - Awaiting iOS `clearByName(url, name, true)` now waits for every matching WebKit deletion, preventing a following request or WebView load from observing cookies that were still being removed.
 - iOS `get(url, true)` and `clearByName()` now match cookie domains case-insensitively in both Foundation and WebKit flows. Leading-dot domains apply to their root host as well as subdomains, while strict domain boundaries remain enforced.
-- Android `get(url)` now returns stored `domain`, `path`, `expires`, `secure`, and `httpOnly` attributes when the installed WebView supports `GET_COOKIE_INFO`. Older WebViews transparently retain the previous name/value-only behavior.
+- Android `get(url)` now returns stored `domain`, `path`, `expires`, `secure`, and `httpOnly` attributes when the device's Android System WebView provider supports `GET_COOKIE_INFO`. Devices with an older provider transparently retain the previous name/value-only behavior.
 - `removeSessionCookies()` now works on iOS and resolves only after session cookies have been removed from the selected stores; persistent cookies remain untouched. Foundation and the default WebKit store are selected by default. On Android, awaiting it now also guarantees that its automatic `flush()` has completed, so an immediate shutdown cannot leave removed session cookies on disk.
 - iOS cookie cleanup no longer invokes the unrelated deprecated `UserDefaults.synchronize()` API.
 
@@ -33,6 +34,7 @@
 - Added Swift and Kotlin regression coverage for duplicate-name array reads and legacy object collapsing.
 - Added Foundation and WebKit store integration tests on macOS and iOS Simulator, covering duplicate-name round trips, store selection, and completion-aware deletion/cleanup.
 - Added Swift coverage for request-header formatting and WebKit domain/path/secure/expiry matching, plus Android coverage for raw header passthrough and empty stores.
+- Added Android coverage for host-only, domain, path, prefixed, and partitioned cookie deletion, unsupported providers, callback ordering, and rejected writes.
 
 ### Compatibility
 

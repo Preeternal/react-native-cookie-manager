@@ -77,7 +77,7 @@ const cookieVariants = await CookieManager.getAsArray('https://example.com');
 // iOS only: get all cookies
 const allCookies = await CookieManager.getAll();
 
-// Clear by name (iOS only)
+// Clear cookies named "session"
 await CookieManager.clearByName('https://example.com', 'session');
 
 // Clear Foundation on iOS; clear the shared store on Android
@@ -120,7 +120,7 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 | `clearAllStores()` | iOS, Android | `Promise<boolean>` | Clears the shared Android store, or Foundation and default WebKit on iOS; resolves `true` after native completion. |
 | `getAll(useWebKit?)` | iOS | `Promise<Cookies>` | Reads Foundation by default or default WebKit when `true`. |
 | `getAllAsArray(useWebKit?)` | iOS | `Promise<ReadonlyArray<Cookie>>` | Reads the selected iOS store without collapsing cookies that share a name. |
-| `clearByName(url, name, useWebKit?)` | iOS | `Promise<boolean>` | Clears matching cookies from Foundation by default or default WebKit when `true`. |
+| `clearByName(url, name, useWebKit?)` | iOS, Android | `Promise<boolean>` | Clears same-name cookies from the selected iOS store, or variants applicable to `url` in the shared Android store. |
 | `flush()` | iOS, Android | `Promise<void>` | Explicit persistence barrier for the Android store; normally unnecessary after library mutations. It is a no-op on iOS because the system manages persistence automatically. |
 | `removeSessionCookies(options?)` | iOS, Android | `Promise<boolean>` | Removes cookies without an expiry date and reports whether any were removed; includes both iOS stores by default. |
 | `setFromResponse(url, cookieHeader)` | iOS, Android | `Promise<boolean>` | Imports one raw `Set-Cookie` header value; uses Foundation on iOS. |
@@ -129,6 +129,8 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 `useWebKit` is available on `set()`, `get()`, `getAsArray()`, `getCookieHeader()`, `clearAll()`, `getAll()`, `getAllAsArray()`, and `clearByName()`. On iOS, omitted/`false` selects Foundation and `true` selects only the default WebKit store; it never combines them. On Android the flag is ignored because WebView and native share a single store.
 
 `removeSessionCookies()` clears both iOS stores by default. Pass `{ iosCookieStore: 'foundation' }` or `{ iosCookieStore: 'webKit' }` to limit cleanup to one store. Android ignores this iOS-only option.
+
+On Android, `clearByName()` relies on `GET_COOKIE_INFO` support in the device's Android System WebView provider. It rejects with `not_supported` on devices with an older provider. The method clears every same-name domain/path variant visible to the supplied URL. A cookie restricted to `/account` is not visible from a `/` URL, so use a matching path (and multiple calls for unrelated paths). On iOS, the method clears same-domain variants across all paths in the selected store.
 
 ### Cookie shape
 
@@ -147,7 +149,7 @@ type Cookie = {
 
 `Cookies` is keyed by cookie name, so `get()` and `getAll()` retain only the last item when multiple cookies share a name. This legacy behavior is preserved for upstream compatibility. Use `getAsArray()` or `getAllAsArray()` when `domain`/`path` variants must remain separate.
 
-On Android, metadata is populated when the installed WebView supports `GET_COOKIE_INFO`. Older WebViews fall back to legacy name/value parsing, so `domain`, `path`, and `expires` may be unavailable, while `secure` and `httpOnly` should not be treated as authoritative.
+On Android, metadata is populated when the device's Android System WebView provider supports `GET_COOKIE_INFO`. Devices with an older provider fall back to legacy name/value parsing, so `domain`, `path`, and `expires` may be unavailable, while `secure` and `httpOnly` should not be treated as authoritative.
 
 ### WebKit on iOS
 
@@ -167,7 +169,7 @@ On Android, metadata is populated when the installed WebView supports `GET_COOKI
 - On iOS, Foundation and WebKit manage persistence automatically. There is no public explicit flush API, so `flush()` is a no-op.
 - On Android, the library automatically flushes the shared WebView cookie store after its mutations. Current WebView implementations may also restore session cookies—cookies without an expiry—after a process restart.
 
-On Android, mutation methods automatically flush before their Promises resolve. Calling `flush()` immediately after awaiting `set()`, `setFromResponse()`, `getFromResponse()`, `clearAll()`, `clearAllStores()`, or `removeSessionCookies()` is redundant. Use it only as an explicit persistence barrier after the shared Android store was changed outside this library.
+On Android, mutation methods automatically flush before their Promises resolve. Calling `flush()` immediately after awaiting `set()`, `setFromResponse()`, `getFromResponse()`, `clearByName()`, `clearAll()`, `clearAllStores()`, or `removeSessionCookies()` is redundant. Use it only as an explicit persistence barrier after the shared Android store was changed outside this library.
 
 The library intentionally does not maintain a separate cookie backup or silently replay cookies on startup. That could resurrect expired or logged-out authentication state and would require the application to choose appropriate secure storage. Prefer server-defined persistent cookies; call `removeSessionCookies()` before the first request or WebView load when the application requires a clean session on launch.
 
