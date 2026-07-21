@@ -147,19 +147,19 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 
 | Method | Platforms | Description |
 | --- | --- | --- |
-| `set(url, cookie, useWebKit?)`: `Promise<boolean>` | iOS, Android | Stores a cookie, including `sameSite` and relative `maxAge`. On iOS, uses Foundation by default or default WebKit when `true`. |
-| `get(url, useWebKit?)`: `Promise<Cookies>` | iOS, Android | Reads matching cookies without making a request. On iOS, uses Foundation by default or default WebKit when `true`. |
-| `getAsArray(url, useWebKit?)`: `Promise<ReadonlyArray<Cookie>>` | iOS, Android | Reads matching cookies without collapsing cookies that share a name. Store selection matches `get()`. |
-| `getCookieHeader(url, useWebKit?)`: `Promise<string>` | iOS, Android | Returns the selected store's matching cookies as a `Cookie` request-header value, or an empty string. |
-| `clearAll(useWebKit?)`: `Promise<boolean>` | iOS, Android | Clears the shared Android store. On iOS, clears Foundation by default or default WebKit when `true`. |
-| `clearAllStores()`: `Promise<boolean>` | iOS, Android | Clears the shared Android store, or Foundation and default WebKit on iOS; resolves `true` after native completion. |
-| `getAll(useWebKit?)`: `Promise<Cookies>` | iOS | Reads Foundation by default or default WebKit when `true`. |
-| `getAllAsArray(useWebKit?)`: `Promise<ReadonlyArray<Cookie>>` | iOS | Reads the selected iOS store without collapsing cookies that share a name. |
-| `clearByName(url, name, useWebKit?)`: `Promise<boolean>` | iOS, Android | Clears same-name cookies from the selected iOS store, or variants applicable to `url` in the shared Android store. |
-| `flush()`: `Promise<void>` | iOS, Android | Explicit persistence barrier for the Android store; normally unnecessary after library mutations. It is a no-op on iOS because the system manages persistence automatically. |
-| `removeSessionCookies(options?)`: `Promise<boolean>` | iOS, Android | Removes cookies without an expiry date and reports whether any were removed; includes both iOS stores by default. |
-| `setFromResponse(url, cookieHeader)`: `Promise<boolean>` | iOS, Android | Imports one raw `Set-Cookie` header value; uses Foundation on iOS. |
-| `getFromResponse(url)`: `Promise<Cookies>` | iOS, Android | Deprecated; performs a GET and updates Foundation on iOS. |
+| **`set(url, cookie, useWebKit?)`**: `Promise<boolean>` | iOS, Android | Stores a cookie, including `sameSite` and relative `maxAge`. On iOS, uses Foundation by default or default WebKit when `true`. |
+| **`get(url, useWebKit?)`**: `Promise<Cookies>` | iOS, Android | Reads matching cookies without making a request. On iOS, uses Foundation by default or default WebKit when `true`. |
+| **`getAsArray(url, useWebKit?)`**: `Promise<ReadonlyArray<Cookie>>` | iOS, Android | Reads matching cookies without collapsing cookies that share a name. Store selection matches `get()`. |
+| **`getCookieHeader(url, useWebKit?)`**: `Promise<string>` | iOS, Android | Returns the selected store's matching cookies as a `Cookie` request-header value, or an empty string. |
+| **`clearAll(useWebKit?)`**: `Promise<boolean>` | iOS, Android | Clears the shared Android store. On iOS, clears Foundation by default or default WebKit when `true`. |
+| **`clearAllStores()`**: `Promise<boolean>` | iOS, Android | Clears the shared Android store, or Foundation and default WebKit on iOS; resolves `true` after native completion. |
+| **`getAll(useWebKit?)`**: `Promise<Cookies>` | iOS | Reads Foundation by default or default WebKit when `true`. |
+| **`getAllAsArray(useWebKit?)`**: `Promise<ReadonlyArray<Cookie>>` | iOS | Reads the selected iOS store without collapsing cookies that share a name. |
+| **`clearByName(url, name, useWebKit?)`**: `Promise<boolean>` | iOS, Android | Clears same-name cookies from the selected iOS store, or variants applicable to `url` in the shared Android store. |
+| **`flush()`**: `Promise<void>` | iOS, Android | Explicit persistence barrier for the Android store; normally unnecessary after library mutations. It is a no-op on iOS because the system manages persistence automatically. |
+| **`removeSessionCookies(options?)`**: `Promise<boolean>` | iOS, Android | Removes cookies without an expiry date and reports whether any were removed; includes both iOS stores by default. |
+| **`setFromResponse(url, cookieHeader)`**: `Promise<boolean>` | iOS, Android | Imports one raw `Set-Cookie` header value; uses Foundation on iOS. |
+| **`getFromResponse(url)`**: `Promise<Cookies>` | iOS, Android | Deprecated; performs a GET and updates Foundation on iOS. |
 
 `useWebKit` is available on `set()`, `get()`, `getAsArray()`, `getCookieHeader()`, `clearAll()`, `getAll()`, `getAllAsArray()`, and `clearByName()`. On iOS, omitted/`false` selects Foundation and `true` selects only the default WebKit store; it never combines them. On Android the flag is ignored because WebView and native share a single store.
 
