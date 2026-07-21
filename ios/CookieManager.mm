@@ -65,6 +65,14 @@ RCT_EXPORT_MODULE();
   [_impl get:url useWebKit:[useWebKit boolValue] resolve:resolve reject:reject];
 }
 
+- (void)handleGetAsArray:(NSString *)url
+               useWebKit:(NSNumber *)useWebKit
+                 resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl getAsArray:url useWebKit:[useWebKit boolValue] resolve:resolve reject:reject];
+}
+
 - (void)handleClearAll:(NSNumber *)useWebKit
                resolve:(RCTPromiseResolveBlock)resolve
                 reject:(RCTPromiseRejectBlock)reject
@@ -92,6 +100,13 @@ RCT_EXPORT_MODULE();
               reject:(RCTPromiseRejectBlock)reject
 {
   [_impl getAll:[useWebKit boolValue] resolve:resolve reject:reject];
+}
+
+- (void)handleGetAllAsArray:(NSNumber *)useWebKit
+                    resolve:(RCTPromiseResolveBlock)resolve
+                     reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl getAllAsArray:[useWebKit boolValue] resolve:resolve reject:reject];
 }
 
 - (void)handleFlushWithResolve:(RCTPromiseResolveBlock)resolve
@@ -175,6 +190,14 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
   [self handleGet:url useWebKit:useWebKit resolve:resolve reject:reject];
 }
 
+- (void)getAsArray:(NSString *)url
+         useWebKit:(NSNumber *)useWebKit
+           resolve:(RCTPromiseResolveBlock)resolve
+            reject:(RCTPromiseRejectBlock)reject
+{
+  [self handleGetAsArray:url useWebKit:useWebKit resolve:resolve reject:reject];
+}
+
 - (void)clearAll:(NSNumber *)useWebKit
          resolve:(RCTPromiseResolveBlock)resolve
           reject:(RCTPromiseRejectBlock)reject
@@ -201,6 +224,13 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
         reject:(RCTPromiseRejectBlock)reject
 {
   [self handleGetAll:useWebKit resolve:resolve reject:reject];
+}
+
+- (void)getAllAsArray:(NSNumber *)useWebKit
+              resolve:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject
+{
+  [self handleGetAllAsArray:useWebKit resolve:resolve reject:reject];
 }
 
 - (void)flush:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
@@ -267,6 +297,15 @@ RCT_EXPORT_METHOD(getCookies
   [self handleGet:url useWebKit:@(useWebKit) resolve:resolve reject:reject];
 }
 
+RCT_EXPORT_METHOD(getAsArray
+                  : (NSString *)url useWebKit
+                  : (BOOL)useWebKit resolve
+                  : (RCTPromiseResolveBlock)resolve reject
+                  : (RCTPromiseRejectBlock)reject)
+{
+  [self handleGetAsArray:url useWebKit:@(useWebKit) resolve:resolve reject:reject];
+}
+
 RCT_EXPORT_METHOD(clearAll
                   : (BOOL)useWebKit resolve
                   : (RCTPromiseResolveBlock)resolve reject
@@ -298,6 +337,14 @@ RCT_EXPORT_METHOD(getAll
                   : (RCTPromiseRejectBlock)reject)
 {
   [self handleGetAll:@(useWebKit) resolve:resolve reject:reject];
+}
+
+RCT_EXPORT_METHOD(getAllAsArray
+                  : (BOOL)useWebKit resolve
+                  : (RCTPromiseResolveBlock)resolve reject
+                  : (RCTPromiseRejectBlock)reject)
+{
+  [self handleGetAllAsArray:@(useWebKit) resolve:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(flush

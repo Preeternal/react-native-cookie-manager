@@ -115,41 +115,20 @@ public class CookieManagerImpl: NSObject {
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
-    guard let parsedUrl = URL(string: url as String) else {
-      reject("invalid_url", Self.invalidURLMissingHTTP, nil)
-      return
+    loadCookies(url: url, useWebKit: useWebKit, reject: reject) { cookies in
+      resolve(self.createCookieList(cookies))
     }
-    if useWebKit {
-      guard #available(iOS 11.0, *) else {
-        reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
-        return
-      }
+  }
 
-      guard let topLevelDomain = parsedUrl.host, !topLevelDomain.isEmpty else {
-        reject("invalid_url", Self.invalidURLMissingHTTP, nil)
-        return
-      }
-
-      DispatchQueue.main.async {
-        WKWebsiteDataStore.default().httpCookieStore.getAllCookies { allCookies in
-          var cookies: [String: Any] = [:]
-          for cookie in allCookies
-            where CookieDomainLogic.isMatchingDomain(
-              originDomain: topLevelDomain,
-              cookieDomain: cookie.domain
-            ) {
-            cookies[cookie.name] = self.createCookieData(cookie)
-          }
-          resolve(cookies)
-        }
-      }
-    } else {
-      var cookies: [String: Any] = [:]
-      let storageCookies = HTTPCookieStorage.shared.cookies(for: parsedUrl) ?? []
-      for cookie in storageCookies {
-        cookies[cookie.name] = createCookieData(cookie)
-      }
-      resolve(cookies)
+  @objc(getAsArray:useWebKit:resolve:reject:)
+  public func getAsArray(
+    url: NSString,
+    useWebKit: Bool,
+    resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    loadCookies(url: url, useWebKit: useWebKit, reject: reject) { cookies in
+      resolve(self.createCookieArray(cookies))
     }
   }
 
@@ -268,6 +247,27 @@ public class CookieManagerImpl: NSObject {
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
+    loadAllCookies(useWebKit: useWebKit, reject: reject) { cookies in
+      resolve(self.createCookieList(cookies))
+    }
+  }
+
+  @objc(getAllAsArray:resolve:reject:)
+  public func getAllAsArray(
+    useWebKit: Bool,
+    resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    loadAllCookies(useWebKit: useWebKit, reject: reject) { cookies in
+      resolve(self.createCookieArray(cookies))
+    }
+  }
+
+  private func loadAllCookies(
+    useWebKit: Bool,
+    reject: @escaping RCTPromiseRejectBlock,
+    completion: @escaping ([HTTPCookie]) -> Void
+  ) {
     if useWebKit {
       guard #available(iOS 11.0, *) else {
         reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
@@ -275,12 +275,11 @@ public class CookieManagerImpl: NSObject {
       }
       DispatchQueue.main.async {
         WKWebsiteDataStore.default().httpCookieStore.getAllCookies { allCookies in
-          resolve(self.createCookieList(allCookies))
+          completion(allCookies)
         }
       }
     } else {
-      let cookies = HTTPCookieStorage.shared.cookies ?? []
-      resolve(createCookieList(cookies))
+      completion(HTTPCookieStorage.shared.cookies ?? [])
     }
   }
 
@@ -351,12 +350,55 @@ public class CookieManagerImpl: NSObject {
     }
   }
 
-  private func createCookieList(_ cookies: [HTTPCookie]) -> [String: Any] {
-    var cookieList: [String: Any] = [:]
-    for cookie in cookies {
-      cookieList[cookie.name] = createCookieData(cookie)
+  private func loadCookies(
+    url: NSString,
+    useWebKit: Bool,
+    reject: @escaping RCTPromiseRejectBlock,
+    completion: @escaping ([HTTPCookie]) -> Void
+  ) {
+    guard let parsedUrl = URL(string: url as String) else {
+      reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+      return
     }
-    return cookieList
+
+    if useWebKit {
+      guard #available(iOS 11.0, *) else {
+        reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
+        return
+      }
+
+      guard let topLevelDomain = parsedUrl.host, !topLevelDomain.isEmpty else {
+        reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+        return
+      }
+
+      DispatchQueue.main.async {
+        WKWebsiteDataStore.default().httpCookieStore.getAllCookies { allCookies in
+          completion(
+            allCookies.filter { cookie in
+              CookieDomainLogic.isMatchingDomain(
+                originDomain: topLevelDomain,
+                cookieDomain: cookie.domain
+              )
+            }
+          )
+        }
+      }
+    } else {
+      completion(HTTPCookieStorage.shared.cookies(for: parsedUrl) ?? [])
+    }
+  }
+
+  private func createCookieList(_ cookies: [HTTPCookie]) -> [String: Any] {
+    CookieCollectionLogic.asDictionary(
+      cookies,
+      name: { $0.name },
+      transform: createCookieData
+    )
+  }
+
+  private func createCookieArray(_ cookies: [HTTPCookie]) -> [[String: Any]] {
+    CookieCollectionLogic.asArray(cookies, transform: createCookieData)
   }
 
   private func makeHTTPCookie(url: URL, props: NSDictionary) throws -> HTTPCookie {

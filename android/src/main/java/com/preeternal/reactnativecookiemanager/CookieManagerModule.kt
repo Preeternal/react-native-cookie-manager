@@ -10,6 +10,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.module.annotations.ReactModule
 import java.lang.Exception
@@ -71,13 +72,20 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     }
 
     try {
-      val cookieManager = getCookieManager()
-      val cookieHeaders = readCookieHeaders(
-        supportsDetailedRead = WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO),
-        detailedReader = { CookieManagerCompat.getCookieInfo(cookieManager, url) },
-        legacyReader = { cookieManager.getCookie(url) }
-      )
-      promise.resolve(createCookieList(cookieHeaders))
+      promise.resolve(createCookieList(readCookies(url)))
+    } catch (e: Exception) {
+      promise.reject("get_cookie_error", e)
+    }
+  }
+
+  override fun getAsArray(url: String, useWebKit: Boolean?, promise: Promise) {
+    if (url.isEmpty()) {
+      promise.reject("invalid_url", INVALID_URL_MISSING_HTTP)
+      return
+    }
+
+    try {
+      promise.resolve(createCookieArray(readCookies(url)))
     } catch (e: Exception) {
       promise.reject("get_cookie_error", e)
     }
@@ -102,6 +110,10 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   }
 
   override fun getAll(useWebKit: Boolean?, promise: Promise) {
+    promise.reject("not_supported", GET_ALL_NOT_SUPPORTED)
+  }
+
+  override fun getAllAsArray(useWebKit: Boolean?, promise: Promise) {
     promise.reject("not_supported", GET_ALL_NOT_SUPPORTED)
   }
 
@@ -180,26 +192,48 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  private fun createCookieList(cookieReadResult: CookieReadResult): WritableMap {
+  private fun readCookies(url: String): List<ParsedCookie> {
+    val cookieManager = getCookieManager()
+    val cookieHeaders = readCookieHeaders(
+      supportsDetailedRead = WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO),
+      detailedReader = { CookieManagerCompat.getCookieInfo(cookieManager, url) },
+      legacyReader = { cookieManager.getCookie(url) }
+    )
+    return parseCookieReadResult(cookieHeaders)
+  }
+
+  private fun createCookieList(cookies: List<ParsedCookie>): WritableMap {
     val allCookiesMap = Arguments.createMap()
 
-    for (cookie in parseCookieReadResult(cookieReadResult)) {
-      val cookieMap = Arguments.createMap()
-      cookieMap.putString("name", cookie.name)
-      cookieMap.putString("value", cookie.value)
-      cookieMap.putString("domain", cookie.domain)
-      cookieMap.putString("path", cookie.path)
-      cookieMap.putBoolean("secure", cookie.secure)
-      cookieMap.putBoolean("httpOnly", cookie.httpOnly)
-      cookie.expiresAt?.let { expiresAt ->
-        formatDate(Date(expiresAt))?.let { expires ->
-          cookieMap.putString("expires", expires)
-        }
-      }
-      allCookiesMap.putMap(cookie.name, cookieMap)
+    for (cookie in cookies) {
+      allCookiesMap.putMap(cookie.name, createCookieMap(cookie))
     }
 
     return allCookiesMap
+  }
+
+  private fun createCookieArray(cookies: List<ParsedCookie>): WritableArray {
+    val cookieArray = Arguments.createArray()
+    for (cookie in cookies) {
+      cookieArray.pushMap(createCookieMap(cookie))
+    }
+    return cookieArray
+  }
+
+  private fun createCookieMap(cookie: ParsedCookie): WritableMap {
+    val cookieMap = Arguments.createMap()
+    cookieMap.putString("name", cookie.name)
+    cookieMap.putString("value", cookie.value)
+    cookieMap.putString("domain", cookie.domain)
+    cookieMap.putString("path", cookie.path)
+    cookieMap.putBoolean("secure", cookie.secure)
+    cookieMap.putBoolean("httpOnly", cookie.httpOnly)
+    cookie.expiresAt?.let { expiresAt ->
+      formatDate(Date(expiresAt))?.let { expires ->
+        cookieMap.putString("expires", expires)
+      }
+    }
+    return cookieMap
   }
 
   private fun fetchResponseCookies(

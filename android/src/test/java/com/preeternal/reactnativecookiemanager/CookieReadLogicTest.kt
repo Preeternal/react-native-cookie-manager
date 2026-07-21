@@ -149,4 +149,23 @@ class CookieReadLogicTest {
       assertFalse(cookie.httpOnly)
     }
   }
+
+  @Test
+  fun preservesDuplicateCookieNamesForArraySerialization() {
+    val detailedCookies = parseCookieReadResult(
+      CookieReadResult.Detailed(
+        listOf(
+          "session=root; domain=example.com; path=/",
+          "session=account; domain=example.com; path=/account"
+        )
+      )
+    )
+    val legacyCookies = parseCookieReadResult(
+      CookieReadResult.Legacy("session=root; session=account")
+    )
+
+    assertEquals(listOf("root", "account"), detailedCookies.map { it.value })
+    assertEquals(listOf("/", "/account"), detailedCookies.map { it.path })
+    assertEquals(listOf("root", "account"), legacyCookies.map { it.value })
+  }
 }
