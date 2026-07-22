@@ -1,5 +1,5 @@
 PODS:
-  - CookieManager (6.3.3):
+  - CookieManager (6.4.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2000,7 +2000,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  CookieManager: fee00e6371b9003d4c58d9b55fb2eea00540cd04
+  CookieManager: 4465329b104f3890671565066cb527ad2a5264f4
   FBLazyVector: c00c20551d40126351a6783c47ce75f5b374851b
   hermes-engine: df3f092e2c5dcbf6704b61224f29edc0f9594aa1
   RCTDeprecation: 3bb167081b134461cfeb875ff7ae1945f8635257

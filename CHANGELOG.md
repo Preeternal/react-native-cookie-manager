@@ -2,7 +2,7 @@
 
 ---
 
-## v6.4.0: Reliable native cookies and modern attributes (Unreleased)
+## v6.4.0: Reliable native cookies and modern attributes
 
 ### Added
 
