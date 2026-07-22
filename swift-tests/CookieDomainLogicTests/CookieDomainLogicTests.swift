@@ -25,48 +25,6 @@ final class CookieDomainLogicTests: XCTestCase {
     )
   }
 
-  func testIsCookieDomainValidAllowsParentDomainWithLeadingDot() {
-    XCTAssertTrue(
-      CookieDomainLogic.isCookieDomainValid(
-        host: "app.trustedhealth.com",
-        cookieDomain: ".trustedhealth.com"
-      )
-    )
-  }
-
-  func testIsCookieDomainValidRejectsMismatchedDomain() {
-    XCTAssertFalse(
-      CookieDomainLogic.isCookieDomainValid(
-        host: "app.trustedhealth.com",
-        cookieDomain: ".evil.com"
-      )
-    )
-  }
-
-  func testIsCookieDomainValidRejectsSubstringDomainMatch() {
-    XCTAssertFalse(
-      CookieDomainLogic.isCookieDomainValid(
-        host: "notexample.com",
-        cookieDomain: "example.com"
-      )
-    )
-    XCTAssertFalse(
-      CookieDomainLogic.isCookieDomainValid(
-        host: "badexample.com",
-        cookieDomain: "example.com"
-      )
-    )
-  }
-
-  func testIsCookieDomainValidIsCaseInsensitive() {
-    XCTAssertTrue(
-      CookieDomainLogic.isCookieDomainValid(
-        host: "APP.EXAMPLE.COM",
-        cookieDomain: "example.com"
-      )
-    )
-  }
-
   func testIsMatchingDomainAllowsParentDomainWithoutLeadingDot() {
     XCTAssertTrue(
       CookieDomainLogic.isMatchingDomain(
@@ -85,11 +43,47 @@ final class CookieDomainLogicTests: XCTestCase {
     )
   }
 
+  func testIsMatchingDomainAllowsExactDomainWithLeadingDot() {
+    XCTAssertTrue(
+      CookieDomainLogic.isMatchingDomain(
+        originDomain: "example.com",
+        cookieDomain: ".example.com"
+      )
+    )
+  }
+
+  func testIsMatchingDomainIsCaseInsensitiveForExactDomain() {
+    XCTAssertTrue(
+      CookieDomainLogic.isMatchingDomain(
+        originDomain: "Example.com",
+        cookieDomain: "example.COM"
+      )
+    )
+  }
+
+  func testIsMatchingDomainIsCaseInsensitiveForParentDomain() {
+    XCTAssertTrue(
+      CookieDomainLogic.isMatchingDomain(
+        originDomain: "App.Example.COM",
+        cookieDomain: ".EXAMPLE.com"
+      )
+    )
+  }
+
   func testIsMatchingDomainRejectsUnrelatedDomain() {
     XCTAssertFalse(
       CookieDomainLogic.isMatchingDomain(
         originDomain: "app.trustedhealth.com",
         cookieDomain: "example.org"
+      )
+    )
+  }
+
+  func testIsMatchingDomainRejectsSubstringDomainMatch() {
+    XCTAssertFalse(
+      CookieDomainLogic.isMatchingDomain(
+        originDomain: "NotExample.com",
+        cookieDomain: ".example.COM"
       )
     )
   }

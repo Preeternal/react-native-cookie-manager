@@ -65,11 +65,33 @@ RCT_EXPORT_MODULE();
   [_impl get:url useWebKit:[useWebKit boolValue] resolve:resolve reject:reject];
 }
 
+- (void)handleGetAsArray:(NSString *)url
+               useWebKit:(NSNumber *)useWebKit
+                 resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl getAsArray:url useWebKit:[useWebKit boolValue] resolve:resolve reject:reject];
+}
+
+- (void)handleGetCookieHeader:(NSString *)url
+                    useWebKit:(NSNumber *)useWebKit
+                      resolve:(RCTPromiseResolveBlock)resolve
+                       reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl getCookieHeader:url useWebKit:[useWebKit boolValue] resolve:resolve reject:reject];
+}
+
 - (void)handleClearAll:(NSNumber *)useWebKit
                resolve:(RCTPromiseResolveBlock)resolve
                 reject:(RCTPromiseRejectBlock)reject
 {
   [_impl clearAll:[useWebKit boolValue] resolve:resolve reject:reject];
+}
+
+- (void)handleClearAllStores:(RCTPromiseResolveBlock)resolve
+                      reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl clearAllStoresWithResolve:resolve reject:reject];
 }
 
 - (void)handleClearByName:(NSString *)url
@@ -88,16 +110,28 @@ RCT_EXPORT_MODULE();
   [_impl getAll:[useWebKit boolValue] resolve:resolve reject:reject];
 }
 
+- (void)handleGetAllAsArray:(NSNumber *)useWebKit
+                    resolve:(RCTPromiseResolveBlock)resolve
+                     reject:(RCTPromiseRejectBlock)reject
+{
+  [_impl getAllAsArray:[useWebKit boolValue] resolve:resolve reject:reject];
+}
+
 - (void)handleFlushWithResolve:(RCTPromiseResolveBlock)resolve
                         reject:(RCTPromiseRejectBlock)reject
 {
   [_impl flushWithResolve:resolve reject:reject];
 }
 
-- (void)handleRemoveSessionCookies:(RCTPromiseResolveBlock)resolve
+- (void)handleRemoveSessionCookies:(BOOL)clearFoundation
+                       clearWebKit:(BOOL)clearWebKit
+                           resolve:(RCTPromiseResolveBlock)resolve
                             reject:(RCTPromiseRejectBlock)reject
 {
-  [_impl removeSessionCookiesWithResolve:resolve reject:reject];
+  [_impl removeSessionCookiesWithClearFoundation:clearFoundation
+                                     clearWebKit:clearWebKit
+                                        resolve:resolve
+                                         reject:reject];
 }
 
 #if RCT_NEW_ARCH_ENABLED
@@ -127,6 +161,12 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
   }
   if (cookie.httpOnly().has_value()) {
     dict[@"httpOnly"] = @(cookie.httpOnly().value());
+  }
+  if (cookie.sameSite() != nil) {
+    dict[@"sameSite"] = cookie.sameSite();
+  }
+  if (cookie.maxAge().has_value()) {
+    dict[@"maxAge"] = @(cookie.maxAge().value());
   }
   return dict;
 }
@@ -164,11 +204,32 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
   [self handleGet:url useWebKit:useWebKit resolve:resolve reject:reject];
 }
 
+- (void)getAsArray:(NSString *)url
+         useWebKit:(NSNumber *)useWebKit
+           resolve:(RCTPromiseResolveBlock)resolve
+            reject:(RCTPromiseRejectBlock)reject
+{
+  [self handleGetAsArray:url useWebKit:useWebKit resolve:resolve reject:reject];
+}
+
+- (void)getCookieHeader:(NSString *)url
+              useWebKit:(NSNumber *)useWebKit
+                resolve:(RCTPromiseResolveBlock)resolve
+                 reject:(RCTPromiseRejectBlock)reject
+{
+  [self handleGetCookieHeader:url useWebKit:useWebKit resolve:resolve reject:reject];
+}
+
 - (void)clearAll:(NSNumber *)useWebKit
          resolve:(RCTPromiseResolveBlock)resolve
           reject:(RCTPromiseRejectBlock)reject
 {
   [self handleClearAll:useWebKit resolve:resolve reject:reject];
+}
+
+- (void)clearAllStores:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
+{
+  [self handleClearAllStores:resolve reject:reject];
 }
 
 - (void)clearByName:(NSString *)url
@@ -187,14 +248,27 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
   [self handleGetAll:useWebKit resolve:resolve reject:reject];
 }
 
+- (void)getAllAsArray:(NSNumber *)useWebKit
+              resolve:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject
+{
+  [self handleGetAllAsArray:useWebKit resolve:resolve reject:reject];
+}
+
 - (void)flush:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
 {
   [self handleFlushWithResolve:resolve reject:reject];
 }
 
-- (void)removeSessionCookies:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
+- (void)removeSessionCookies:(BOOL)iosClearFoundation
+           iosClearWebKit:(BOOL)iosClearWebKit
+                  resolve:(RCTPromiseResolveBlock)resolve
+                   reject:(RCTPromiseRejectBlock)reject
 {
-  [self handleRemoveSessionCookies:resolve reject:reject];
+  [self handleRemoveSessionCookies:iosClearFoundation
+                        clearWebKit:iosClearWebKit
+                            resolve:resolve
+                             reject:reject];
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
@@ -245,12 +319,37 @@ RCT_EXPORT_METHOD(getCookies
   [self handleGet:url useWebKit:@(useWebKit) resolve:resolve reject:reject];
 }
 
+RCT_EXPORT_METHOD(getAsArray
+                  : (NSString *)url useWebKit
+                  : (BOOL)useWebKit resolve
+                  : (RCTPromiseResolveBlock)resolve reject
+                  : (RCTPromiseRejectBlock)reject)
+{
+  [self handleGetAsArray:url useWebKit:@(useWebKit) resolve:resolve reject:reject];
+}
+
+RCT_EXPORT_METHOD(getCookieHeader
+                  : (NSString *)url useWebKit
+                  : (BOOL)useWebKit resolve
+                  : (RCTPromiseResolveBlock)resolve reject
+                  : (RCTPromiseRejectBlock)reject)
+{
+  [self handleGetCookieHeader:url useWebKit:@(useWebKit) resolve:resolve reject:reject];
+}
+
 RCT_EXPORT_METHOD(clearAll
                   : (BOOL)useWebKit resolve
                   : (RCTPromiseResolveBlock)resolve reject
                   : (RCTPromiseRejectBlock)reject)
 {
   [self handleClearAll:@(useWebKit) resolve:resolve reject:reject];
+}
+
+RCT_EXPORT_METHOD(clearAllStores
+                  : (RCTPromiseResolveBlock)resolve reject
+                  : (RCTPromiseRejectBlock)reject)
+{
+  [self handleClearAllStores:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(clearByName
@@ -271,6 +370,14 @@ RCT_EXPORT_METHOD(getAll
   [self handleGetAll:@(useWebKit) resolve:resolve reject:reject];
 }
 
+RCT_EXPORT_METHOD(getAllAsArray
+                  : (BOOL)useWebKit resolve
+                  : (RCTPromiseResolveBlock)resolve reject
+                  : (RCTPromiseRejectBlock)reject)
+{
+  [self handleGetAllAsArray:@(useWebKit) resolve:resolve reject:reject];
+}
+
 RCT_EXPORT_METHOD(flush
                   : (RCTPromiseResolveBlock)resolve reject
                   : (RCTPromiseRejectBlock)reject)
@@ -279,10 +386,15 @@ RCT_EXPORT_METHOD(flush
 }
 
 RCT_EXPORT_METHOD(removeSessionCookies
+                  : (BOOL)iosClearFoundation iosClearWebKit
+                  : (BOOL)iosClearWebKit resolve
                   : (RCTPromiseResolveBlock)resolve reject
                   : (RCTPromiseRejectBlock)reject)
 {
-  [self handleRemoveSessionCookies:resolve reject:reject];
+  [self handleRemoveSessionCookies:iosClearFoundation
+                        clearWebKit:iosClearWebKit
+                            resolve:resolve
+                             reject:reject];
 }
 
 #endif

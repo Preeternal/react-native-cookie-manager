@@ -10,6 +10,8 @@
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
+    "./app.plugin.js": "./app.plugin.js",
+    "./app.plugin": "./app.plugin.js",
     "./package.json": "./package.json"
   },
   "files": [
@@ -18,6 +20,7 @@
     "android",
     "ios",
     "cpp",
+    "app.plugin.js",
     "*.podspec",
     "react-native.config.js",
     "!ios/build",
@@ -26,6 +29,7 @@
     "!android/gradlew",
     "!android/gradlew.bat",
     "!android/local.properties",
+    "!android/src/test",
     "!**/__tests__",
     "!**/__fixtures__",
     "!**/__mocks__",
@@ -36,7 +40,8 @@
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
     "typecheck": "tsc",
-    "lint": "eslint \"**/*.{js,ts,tsx}\""
+    "lint": "eslint \"**/*.{js,ts,tsx}\"",
+    "test:plugin": "node --test app.plugin.test.js"
   },
   "keywords": [
     "react-native",
@@ -55,6 +60,11 @@
   "homepage": "https://github.com/Preeternal/react-native-cookie-manager#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
+  },
+  "expo": {
+    "plugins": [
+      "./app.plugin.js"
+    ]
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.3",
