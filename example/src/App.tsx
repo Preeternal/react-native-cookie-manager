@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
-  SafeAreaView,
+  Keyboard,
+  Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -43,6 +45,13 @@ const reportSummary = (report: DeviceSmokeReport): string => {
   return skipped > 0 ? `PASSED (${skipped} skipped)` : 'PASSED';
 };
 
+const logReport = (name: string, report: DeviceSmokeReport): void => {
+  console.info(
+    `[CookieManagerExample] ${name}`,
+    JSON.stringify(report, null, 2)
+  );
+};
+
 const TestReport = ({
   report,
   testID,
@@ -55,7 +64,7 @@ const TestReport = ({
       {reportSummary(report)}
     </Text>
     {report.checks.map((check) => (
-      <Text key={check.name} style={styles.mono}>
+      <Text key={check.name} style={styles.mono} selectable>
         {check.status === 'passed'
           ? '✓'
           : check.status === 'skipped'
@@ -102,22 +111,24 @@ export default function App() {
       errors.sharedForUrl = String(error);
     }
 
-    try {
-      snapshot.webKitForUrl = await CookieManager.get(urlToInspect, true);
-    } catch (error) {
-      errors.webKitForUrl = String(error);
-    }
+    if (Platform.OS === 'ios') {
+      try {
+        snapshot.webKitForUrl = await CookieManager.get(urlToInspect, true);
+      } catch (error) {
+        errors.webKitForUrl = String(error);
+      }
 
-    try {
-      snapshot.allShared = await CookieManager.getAll(false);
-    } catch (error) {
-      errors.allShared = String(error);
-    }
+      try {
+        snapshot.allShared = await CookieManager.getAll(false);
+      } catch (error) {
+        errors.allShared = String(error);
+      }
 
-    try {
-      snapshot.allWebKit = await CookieManager.getAll(true);
-    } catch (error) {
-      errors.allWebKit = String(error);
+      try {
+        snapshot.allWebKit = await CookieManager.getAll(true);
+      } catch (error) {
+        errors.allWebKit = String(error);
+      }
     }
 
     setOutput(JSON.stringify({ ...snapshot, errors }, null, 2));
@@ -170,6 +181,7 @@ export default function App() {
   }, [inspectUrl, refreshCookies]);
 
   const handleAddCookiePress = useCallback(() => {
+    Keyboard.dismiss();
     addCookieForDomain().catch((error) => {
       setStatus(`Failed to add cookie: ${String(error)}`);
     });
@@ -188,6 +200,7 @@ export default function App() {
 
     runDeviceSmokeTests()
       .then((report) => {
+        logReport('device smoke test', report);
         setDeviceReport(report);
         setStatus(
           report.passed
@@ -211,6 +224,7 @@ export default function App() {
 
     preparePersistenceTest()
       .then((report) => {
+        logReport('persistence prepare', report);
         setPersistenceReport(report);
         setPersistenceStatus(
           report.passed
@@ -233,11 +247,12 @@ export default function App() {
 
     verifyPersistenceTest()
       .then((report) => {
+        logReport('persistence verify', report);
         setPersistenceReport(report);
         setPersistenceStatus(
           report.passed
             ? 'Persistence test PASSED; test cookies were removed'
-            : 'Persistence test FAILED; see the checks below'
+            : 'Persistence test FAILED; state kept for inspection'
         );
       })
       .catch((error) => {
@@ -254,8 +269,11 @@ export default function App() {
   }, [handleRefreshPress]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.safeArea}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.title}>
           @preeternal/react-native-cookie-manager
         </Text>
@@ -277,6 +295,11 @@ export default function App() {
           <Button title="Clear all" onPress={clearCookies} />
           <Button title="Refresh" onPress={handleRefreshPress} />
         </View>
+        <Text style={styles.status}>{status}</Text>
+        <Text style={styles.subtitle}>Current inspect URL: {inspectUrl}</Text>
+        <View style={styles.output}>
+          <Text style={styles.mono}>{output}</Text>
+        </View>
         <Text style={styles.subtitle}>Native device smoke tests</Text>
         <Text>
           Clears this example app&apos;s cookie stores, exercises the public
@@ -294,8 +317,8 @@ export default function App() {
         <Text style={styles.subtitle}>Persistence across process restart</Text>
         <Text>
           Run this after the one-tap smoke test. Step 1 clears the example
-          app&apos;s stores and creates persistent and session cookies without
-          an extra manual flush.
+          app&apos;s stores and creates Max-Age, Expires, and session cookies
+          without an extra manual flush.
         </Text>
         <Text>
           1. Tap Prepare and wait until PREPARED appears. Do not press Clear or
@@ -313,9 +336,12 @@ export default function App() {
           switcher. Then launch the app again.
         </Text>
         <Text>
-          3. Tap Verify. Persistent cookies must be restored; session-cookie
-          restoration is reported as platform behavior and does not decide the
-          result. Verify cleans up the test cookies.
+          3. Tap Verify. Foundation on iOS and the shared Android store must
+          restore both persistent cookies. Default WebKit is diagnostic because
+          this example does not create a WKWebView; missing WebKit cookies are
+          skipped. Session-cookie restoration is also reported without deciding
+          the result. Verify cleans up after success. After failure, it keeps
+          the restored state for inspection or a retry with Prepare.
         </Text>
         <View style={styles.actions}>
           <Button
@@ -338,13 +364,8 @@ export default function App() {
             testID="persistence-test-result"
           />
         ) : null}
-        <Text style={styles.status}>{status}</Text>
-        <Text style={styles.subtitle}>Current inspect URL: {inspectUrl}</Text>
-        <View style={styles.output}>
-          <Text style={styles.mono}>{output}</Text>
-        </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -352,6 +373,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'ios' ? 48 : (StatusBar.currentHeight ?? 24),
   },
   container: {
     flexGrow: 1,

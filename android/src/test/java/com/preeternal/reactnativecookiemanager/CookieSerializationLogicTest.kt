@@ -95,8 +95,14 @@ class CookieSerializationLogicTest {
 
   @Test
   fun parsesIsoExpiryOffsetsAndKeepsInvalidInputAsSessionOnly() {
+    val expected = 1_970_389_094_000L
+
     assertEquals(
-      parseCookieExpires("2032-06-09T10:18:14.000Z"),
+      expected,
+      parseCookieExpires("2032-06-09T10:18:14.000Z")
+    )
+    assertEquals(
+      expected,
       parseCookieExpires("2032-06-09T12:18:14.000+02:00")
     )
     assertNull(parseCookieExpires("not-a-date"))

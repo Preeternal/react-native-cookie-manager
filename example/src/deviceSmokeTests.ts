@@ -1,4 +1,4 @@
-import { NativeModules, Platform } from 'react-native';
+import { Platform, TurboModuleRegistry, type TurboModule } from 'react-native';
 import CookieManager, {
   type Cookie,
 } from '@preeternal/react-native-cookie-manager';
@@ -8,13 +8,15 @@ const TEST_DOMAIN = '.example.com';
 const COOKIE_PREFIX = 'cm_smoke_';
 const SESSION_COOKIE = `${COOKIE_PREFIX}session`;
 const PERSISTENT_COOKIE = `${COOKIE_PREFIX}persistent`;
+const EXPIRED_COOKIE = `${COOKIE_PREFIX}expired`;
 const DUPLICATE_COOKIE = `${COOKIE_PREFIX}duplicate`;
 const RAW_COOKIE = `${COOKIE_PREFIX}raw`;
 const NETWORK_COOKIE = `${COOKIE_PREFIX}network`;
 const METRO_TEST_PATH = '/__cookie_manager_smoke__';
 const PERSISTENCE_URL = 'https://persistence.example.com/';
 const PERSISTENCE_PREFIX = 'cm_persistence_';
-const PERSISTENCE_COOKIE = `${PERSISTENCE_PREFIX}persistent`;
+const PERSISTENCE_MAX_AGE_COOKIE = `${PERSISTENCE_PREFIX}max_age`;
+const PERSISTENCE_EXPIRES_COOKIE = `${PERSISTENCE_PREFIX}expires`;
 const PERSISTENCE_SESSION_COOKIE = `${PERSISTENCE_PREFIX}session`;
 const PERSISTENCE_VALUE = 'prepared_v1';
 
@@ -36,6 +38,10 @@ export type DeviceSmokeReport = {
 type CookieStore = {
   label: string;
   useWebKit: boolean;
+};
+
+type SourceCodeModule = TurboModule & {
+  getConstants(): { scriptURL?: string };
 };
 
 class SkippedCheck extends Error {}
@@ -71,11 +77,46 @@ const cookieCountInHeader = (header: string, name: string): number =>
     .map((part) => part.trim())
     .filter((part) => part.startsWith(`${name}=`)).length;
 
+const describeCookies = (cookies: ReadonlyArray<Cookie>): string => {
+  if (cookies.length === 0) {
+    return 'No cookies returned';
+  }
+
+  return cookies
+    .map((cookie) => {
+      const attributes = [
+        `domain=${cookie.domain ?? 'unavailable'}`,
+        `path=${cookie.path ?? 'unavailable'}`,
+        `expires=${cookie.expires ?? 'session'}`,
+        `secure=${cookie.secure ?? 'unavailable'}`,
+        `httpOnly=${cookie.httpOnly ?? 'unavailable'}`,
+        `sameSite=${cookie.sameSite ?? 'unavailable'}`,
+      ];
+      return `${cookie.name}{${attributes.join(', ')}}`;
+    })
+    .join('; ');
+};
+
+const assertFutureExpiryWhenAvailable = (
+  cookie: Cookie,
+  label: string
+): void => {
+  if (cookie.domain === undefined) {
+    return;
+  }
+
+  assert(
+    typeof cookie.expires === 'string' &&
+      Date.parse(cookie.expires) > Date.now(),
+    `${label} is missing a future expiry; ${describeCookies([cookie])}`
+  );
+};
+
 const metroOrigin = (): string => {
-  const sourceCode = NativeModules.SourceCode as
-    | { scriptURL?: unknown }
-    | undefined;
-  const scriptURL = sourceCode?.scriptURL;
+  const constants = TurboModuleRegistry.get<SourceCodeModule>(
+    'SourceCode'
+  )?.getConstants() as { scriptURL?: string } | undefined;
+  const scriptURL = constants?.scriptURL;
 
   if (typeof scriptURL !== 'string') {
     throw new SkippedCheck('Metro URL is unavailable in this build');
@@ -229,6 +270,27 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
       );
     });
 
+    await run(`${store.label}: absolute expiry`, async () => {
+      await CookieManager.set(
+        TEST_URL,
+        {
+          name: EXPIRED_COOKIE,
+          value: nonce,
+          domain: TEST_DOMAIN,
+          path: '/',
+          secure: true,
+          expires: new Date(Date.now() - 60_000).toISOString(),
+        },
+        store.useWebKit
+      );
+
+      const cookies = await CookieManager.getAsArray(TEST_URL, store.useWebKit);
+      assert(
+        cookies.every((cookie) => cookie.name !== EXPIRED_COOKIE),
+        'A cookie with a past Expires date remained in the store'
+      );
+    });
+
     await run(`${store.label}: request header`, async () => {
       const header = await CookieManager.getCookieHeader(
         TEST_URL,
@@ -344,6 +406,7 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
 
 export const preparePersistenceTest = async (): Promise<DeviceSmokeReport> => {
   const checks: DeviceSmokeCheck[] = [];
+  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   persistencePreparedInCurrentProcess = false;
 
   await recordCheck(checks, 'Clear previous test state', async () => {
@@ -356,7 +419,7 @@ export const preparePersistenceTest = async (): Promise<DeviceSmokeReport> => {
         CookieManager.set(
           PERSISTENCE_URL,
           {
-            name: PERSISTENCE_COOKIE,
+            name: PERSISTENCE_MAX_AGE_COOKIE,
             value: PERSISTENCE_VALUE,
             domain: 'persistence.example.com',
             path: '/',
@@ -364,6 +427,20 @@ export const preparePersistenceTest = async (): Promise<DeviceSmokeReport> => {
             httpOnly: true,
             sameSite: 'lax',
             maxAge: 24 * 60 * 60,
+          },
+          store.useWebKit
+        ),
+        CookieManager.set(
+          PERSISTENCE_URL,
+          {
+            name: PERSISTENCE_EXPIRES_COOKIE,
+            value: PERSISTENCE_VALUE,
+            domain: 'persistence.example.com',
+            path: '/',
+            secure: true,
+            httpOnly: true,
+            sameSite: 'lax',
+            expires,
           },
           store.useWebKit
         ),
@@ -389,10 +466,18 @@ export const preparePersistenceTest = async (): Promise<DeviceSmokeReport> => {
       assert(
         cookies.some(
           (cookie) =>
-            cookie.name === PERSISTENCE_COOKIE &&
+            cookie.name === PERSISTENCE_MAX_AGE_COOKIE &&
             cookie.value === PERSISTENCE_VALUE
         ),
-        'Persistent cookie was not visible before restart'
+        'Max-Age cookie was not visible before restart'
+      );
+      assert(
+        cookies.some(
+          (cookie) =>
+            cookie.name === PERSISTENCE_EXPIRES_COOKIE &&
+            cookie.value === PERSISTENCE_VALUE
+        ),
+        'Expires cookie was not visible before restart'
       );
       assert(
         cookies.some(
@@ -402,6 +487,19 @@ export const preparePersistenceTest = async (): Promise<DeviceSmokeReport> => {
         ),
         'Session cookie was not visible before restart'
       );
+
+      const maxAgeCookie = cookies.find(
+        (cookie) => cookie.name === PERSISTENCE_MAX_AGE_COOKIE
+      );
+      const expiresCookie = cookies.find(
+        (cookie) => cookie.name === PERSISTENCE_EXPIRES_COOKIE
+      );
+      assert(maxAgeCookie, 'Max-Age cookie metadata was not returned');
+      assert(expiresCookie, 'Expires cookie metadata was not returned');
+      assertFutureExpiryWhenAvailable(maxAgeCookie, 'Max-Age cookie');
+      assertFutureExpiryWhenAvailable(expiresCookie, 'Expires cookie');
+
+      return describeCookies(cookies);
     });
   }
 
@@ -427,22 +525,57 @@ export const verifyPersistenceTest = async (): Promise<DeviceSmokeReport> => {
   const checks: DeviceSmokeCheck[] = [];
 
   for (const store of stores) {
+    let restoredCookies: ReadonlyArray<Cookie> = [];
+
+    await recordCheck(checks, `${store.label}: restored snapshot`, async () => {
+      restoredCookies = await CookieManager.getAsArray(
+        PERSISTENCE_URL,
+        store.useWebKit
+      );
+      return describeCookies(restoredCookies);
+    });
+
     await recordCheck(
       checks,
-      `${store.label}: persistent cookie restored`,
+      `${store.label}: Max-Age cookie restored`,
       async () => {
-        const cookies = await CookieManager.getAsArray(
-          PERSISTENCE_URL,
-          store.useWebKit
+        const cookie = restoredCookies.find(
+          (item) =>
+            item.name === PERSISTENCE_MAX_AGE_COOKIE &&
+            item.value === PERSISTENCE_VALUE
         );
+        if (Platform.OS === 'ios' && store.useWebKit && !cookie) {
+          throw new SkippedCheck(
+            'No WKWebView was initialized before termination; WebKit durability is unavailable in this example'
+          );
+        }
         assert(
-          cookies.some(
-            (cookie) =>
-              cookie.name === PERSISTENCE_COOKIE &&
-              cookie.value === PERSISTENCE_VALUE
-          ),
-          'Persistent cookie was not restored after process restart'
+          cookie,
+          `Max-Age cookie was not restored; ${describeCookies(restoredCookies)}`
         );
+        assertFutureExpiryWhenAvailable(cookie, 'Restored Max-Age cookie');
+      }
+    );
+
+    await recordCheck(
+      checks,
+      `${store.label}: Expires cookie restored`,
+      async () => {
+        const cookie = restoredCookies.find(
+          (item) =>
+            item.name === PERSISTENCE_EXPIRES_COOKIE &&
+            item.value === PERSISTENCE_VALUE
+        );
+        if (Platform.OS === 'ios' && store.useWebKit && !cookie) {
+          throw new SkippedCheck(
+            'No WKWebView was initialized before termination; WebKit durability is unavailable in this example'
+          );
+        }
+        assert(
+          cookie,
+          `Expires cookie was not restored; ${describeCookies(restoredCookies)}`
+        );
+        assertFutureExpiryWhenAvailable(cookie, 'Restored Expires cookie');
       }
     );
 
@@ -450,11 +583,7 @@ export const verifyPersistenceTest = async (): Promise<DeviceSmokeReport> => {
       checks,
       `${store.label}: session policy observed`,
       async () => {
-        const cookies = await CookieManager.getAsArray(
-          PERSISTENCE_URL,
-          store.useWebKit
-        );
-        const restored = cookies.some(
+        const restored = restoredCookies.some(
           (cookie) =>
             cookie.name === PERSISTENCE_SESSION_COOKIE &&
             cookie.value === PERSISTENCE_VALUE
@@ -467,20 +596,30 @@ export const verifyPersistenceTest = async (): Promise<DeviceSmokeReport> => {
     );
   }
 
-  await recordCheck(checks, 'Persistence test cleanup', async () => {
-    await CookieManager.clearAllStores();
+  if (checks.every((check) => check.status !== 'failed')) {
+    await recordCheck(checks, 'Persistence test cleanup', async () => {
+      await CookieManager.clearAllStores();
 
-    for (const store of stores) {
-      const cookies = await CookieManager.getAsArray(
-        PERSISTENCE_URL,
-        store.useWebKit
-      );
-      assert(
-        cookies.every((cookie) => !cookie.name.startsWith(PERSISTENCE_PREFIX)),
-        `${store.label}: persistence-test cookies remained`
-      );
-    }
-  });
+      for (const store of stores) {
+        const cookies = await CookieManager.getAsArray(
+          PERSISTENCE_URL,
+          store.useWebKit
+        );
+        assert(
+          cookies.every(
+            (cookie) => !cookie.name.startsWith(PERSISTENCE_PREFIX)
+          ),
+          `${store.label}: persistence-test cookies remained`
+        );
+      }
+    });
+  } else {
+    checks.push({
+      name: 'Persistence test cleanup',
+      status: 'skipped',
+      detail: 'Skipped after failure so the restored stores remain inspectable',
+    });
+  }
 
   return buildReport(checks);
 };

@@ -24,7 +24,7 @@
 - Awaiting iOS `clearByName(url, name, true)` now waits for every matching WebKit deletion, preventing a following request or WebView load from observing cookies that were still being removed.
 - iOS `get(url, true)` and `clearByName()` now match cookie domains case-insensitively in both Foundation and WebKit flows. Leading-dot domains apply to their root host as well as subdomains, while strict domain boundaries remain enforced.
 - Android `get(url)` now returns stored `domain`, `path`, `expires`, `secure`, `httpOnly`, and `sameSite` attributes when the device's Android System WebView provider supports `GET_COOKIE_INFO`. Devices with an older provider transparently retain the previous name/value-only behavior.
-- Android `set()` now serializes `expires` directly as an absolute `Expires` attribute instead of temporarily storing an absolute timestamp in `HttpCookie.maxAge`. This preserves future and past-date behavior while allowing the new relative `maxAge` field to use its standards-defined seconds contract without accidentally turning deletion cookies into session cookies.
+- Android `set()` now serializes `expires` directly as an absolute `Expires` attribute instead of temporarily storing an absolute timestamp in `HttpCookie.maxAge`. Its ISO parser now accepts the `Z` and offset forms returned by JavaScript dates on Android instead of silently treating them as session cookies. This preserves future and past-date behavior while allowing the new relative `maxAge` field to use its standards-defined seconds contract without accidentally turning deletion cookies into session cookies.
 - `removeSessionCookies()` now works on iOS and resolves only after session cookies have been removed from the selected stores; persistent cookies remain untouched. Foundation and the default WebKit store are selected by default. On Android, awaiting it now also guarantees that its automatic `flush()` has completed, so an immediate shutdown cannot leave removed session cookies on disk.
 - iOS cookie cleanup no longer invokes the unrelated deprecated `UserDefaults.synchronize()` API.
 
@@ -39,7 +39,7 @@
 - Added Swift coverage for request-header formatting and WebKit domain/path/secure/expiry matching, plus Android coverage for raw header passthrough and empty stores.
 - Added Android coverage for host-only, domain, path, prefixed, and partitioned cookie deletion, unsupported providers, callback ordering, and rejected writes.
 - Added unit coverage for the Expo config plugin and extended the Expo prebuild smoke test to verify its generated Gradle property.
-- Added Swift and Kotlin coverage for `sameSite`, relative `maxAge`, `maxAge`/`expires` precedence, immediate deletion, invalid values, time-zone offsets, Android RFC serialization, and Foundation/WebKit store round trips.
+- Added Swift and Kotlin coverage for `sameSite`, relative `maxAge`, `maxAge`/`expires` precedence, immediate deletion, invalid values, concrete ISO timestamps and time-zone offsets, Android RFC serialization, and Foundation/WebKit store round trips.
 - Added example app device checks: a one-tap public API smoke test and a two-phase prepare → force-stop → verify flow for persistent-cookie restoration without an extra manual `flush()`.
 
 ### Compatibility

@@ -41,7 +41,8 @@ internal fun parseMaxAgeSeconds(value: Double): Long {
 internal fun parseCookieExpires(value: String?): Long? {
   if (value.isNullOrEmpty()) return null
   return try {
-    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ", Locale.US).apply {
+    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).apply {
+      isLenient = false
       timeZone = TimeZone.getTimeZone("GMT")
     }.parse(value)?.time
   } catch (_: Exception) {
