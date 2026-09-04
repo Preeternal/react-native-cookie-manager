@@ -2,6 +2,16 @@
 
 ---
 
+## v6.4.1: AGP 9 Kotlin compatibility fix
+
+### Fixes
+
+- Android: Fix a Kotlin plugin conflict when building with AGP 9’s built-in Kotlin support enabled, while preserving compatibility with AGP 8. (#5)
+
+Thanks to @gabrieldonadel for the contribution!
+
+---
+
 ## v6.4.0: Reliable native cookies and modern attributes
 
 ### Added
