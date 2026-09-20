@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import CookieManager, {
   type Cookie,
+  type CookieChangeEvent,
+  type Cookies,
 } from '@preeternal/react-native-cookie-manager';
 import {
   preparePersistenceTest,
@@ -92,6 +94,16 @@ export default function App() {
     useState<string>('Start with step 1');
   const [persistenceTestRunning, setPersistenceTestRunning] =
     useState<boolean>(false);
+  const [cookieChangeEventCount, setCookieChangeEventCount] =
+    useState<number>(0);
+  const [recentCookieChangeEvents, setRecentCookieChangeEvents] = useState<
+    ReadonlyArray<CookieChangeEvent>
+  >([]);
+  const [lastInvalidationRead, setLastInvalidationRead] = useState<{
+    store: CookieChangeEvent['store'];
+    url: string;
+    cookies: Cookies;
+  } | null>(null);
 
   const inspectUrl = useMemo(() => {
     const normalizedDomain = normalizeDomainInput(domainInput);
@@ -268,6 +280,30 @@ export default function App() {
     handleRefreshPress();
   }, [handleRefreshPress]);
 
+  useEffect(() => {
+    if (Platform.OS !== 'ios') {
+      return undefined;
+    }
+
+    const subscription = CookieManager.addCookieChangeListener((event) => {
+      setCookieChangeEventCount((count) => count + 1);
+      setRecentCookieChangeEvents((events) => [event, ...events].slice(0, 8));
+      CookieManager.get(inspectUrl, event.store === 'webKit')
+        .then((cookies) => {
+          setLastInvalidationRead({
+            store: event.store,
+            url: inspectUrl,
+            cookies,
+          });
+        })
+        .catch((error) => {
+          setStatus(`Cookie-change refresh failed: ${String(error)}`);
+        });
+    });
+
+    return () => subscription.remove();
+  }, [inspectUrl]);
+
   return (
     <View style={styles.safeArea}>
       <ScrollView
@@ -300,6 +336,42 @@ export default function App() {
         <View style={styles.output}>
           <Text style={styles.mono}>{output}</Text>
         </View>
+        <Text style={styles.subtitle}>Cookie-change invalidation</Text>
+        {Platform.OS === 'ios' ? (
+          <>
+            <Text>
+              The example keeps one subscription active and re-reads the current
+              URL whenever Foundation or default WebKit reports a change. Add or
+              clear cookies above to see events. The event&apos;s store field
+              selects the matching store for that read; mutations from WebViews
+              and native networking are observed by the same listener.
+            </Text>
+            <View style={styles.output}>
+              <Text testID="cookie-change-event-count">
+                Events observed: {cookieChangeEventCount}
+              </Text>
+              <Text style={styles.mono} selectable>
+                Recent stores:{' '}
+                {recentCookieChangeEvents.length > 0
+                  ? recentCookieChangeEvents
+                      .map((event) => event.store)
+                      .join(', ')
+                  : 'none yet'}
+              </Text>
+              <Text style={styles.mono} selectable>
+                Last matching read:{' '}
+                {lastInvalidationRead
+                  ? JSON.stringify(lastInvalidationRead, null, 2)
+                  : 'none yet'}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <Text>
+            Android does not expose a global WebView cookie-store observer, so
+            this API intentionally reports not_supported there.
+          </Text>
+        )}
         <Text style={styles.subtitle}>Native device smoke tests</Text>
         <Text>
           Clears this example app&apos;s cookie stores, exercises the public

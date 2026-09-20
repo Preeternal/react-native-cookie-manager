@@ -164,7 +164,24 @@ await CookieManager.removeSessionCookies();
 await CookieManager.removeSessionCookies({ iosCookieStore: 'webKit' });
 ```
 
-All methods return Promises and reject when an operation fails.
+### Observe iOS cookie-store changes
+
+Use the change listener to invalidate application state after Foundation or the default WebKit store changes—for example, when a login completes inside a WebView:
+
+```ts
+const subscription = CookieManager.addCookieChangeListener(({ store }) => {
+  // Re-read the URLs relevant to the application from this store.
+  console.log(`${store} cookies changed`);
+});
+
+subscription.remove();
+```
+
+The event payload is only `{ store: 'foundation' | 'webKit' }`. It is an invalidation signal: native stores may coalesce notifications, so one event is not guaranteed for every cookie mutation and no cookie delta is provided. The listener observes Foundation and the default persistent WebKit store; custom or non-persistent `WKWebsiteDataStore` instances are outside its scope.
+
+Cookie change subscriptions are iOS-only. Calling `addCookieChangeListener()` on Android throws an error with `code: 'not_supported'` because the public Android WebView cookie store has no global change observer.
+
+Promise-returning methods reject when an operation fails.
 
 ### Import a Set-Cookie header
 
@@ -183,6 +200,7 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 
 | Method | Platforms | Description |
 | --- | --- | --- |
+| **`addCookieChangeListener(listener)`**: `EventSubscription` | iOS | Subscribes to Foundation and default WebKit invalidation events. The native observers are shared across JS subscribers and stop after the last subscription is removed. Android throws `not_supported`. |
 | **`set(url, cookie, useWebKit?)`**: `Promise<boolean>` | iOS, Android | Stores a cookie, including `sameSite` and relative `maxAge`. On iOS, uses Foundation by default or default WebKit when `true`. |
 | **`get(url, useWebKit?)`**: `Promise<Cookies>` | iOS, Android | Reads matching cookies without making a request. On iOS, uses Foundation by default or default WebKit when `true`. |
 | **`getAsArray(url, useWebKit?)`**: `Promise<ReadonlyArray<Cookie>>` | iOS, Android | Reads matching cookies without collapsing cookies that share a name. Store selection matches `get()`. |

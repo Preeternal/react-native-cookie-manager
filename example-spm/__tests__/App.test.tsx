@@ -2,13 +2,15 @@
  * @format
  */
 
-import { jest, test } from '@jest/globals';
+import { expect, jest, test } from '@jest/globals';
 import ReactTestRenderer from 'react-test-renderer';
+import CookieManager from '@preeternal/react-native-cookie-manager';
 import App from '../src/App';
 
 jest.mock('@preeternal/react-native-cookie-manager', () => ({
   __esModule: true,
   default: {
+    addCookieChangeListener: jest.fn(() => ({ remove: jest.fn() })),
     clearAllStores: jest.fn(async () => true),
     clearByName: jest.fn(async () => true),
     get: jest.fn(async () => ({})),
@@ -22,7 +24,22 @@ jest.mock('@preeternal/react-native-cookie-manager', () => ({
 }));
 
 test('renders correctly', async () => {
+  let renderer!: ReturnType<typeof ReactTestRenderer.create>;
+  const addCookieChangeListener = jest.mocked(
+    CookieManager.addCookieChangeListener
+  );
+
   await ReactTestRenderer.act(() => {
-    ReactTestRenderer.create(<App />);
+    renderer = ReactTestRenderer.create(<App />);
   });
+
+  expect(addCookieChangeListener).toHaveBeenCalledTimes(1);
+  const subscription = addCookieChangeListener.mock.results[0]?.value as
+    { remove: () => void } | undefined;
+
+  await ReactTestRenderer.act(() => {
+    renderer.unmount();
+  });
+
+  expect(subscription?.remove).toHaveBeenCalledTimes(1);
 });

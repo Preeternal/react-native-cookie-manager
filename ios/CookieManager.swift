@@ -4,12 +4,31 @@ import React
 @objc(CookieManagerImpl)
 public class CookieManagerImpl: NSObject {
   private let formatter: DateFormatter
+  private let cookieChangeObserver = CookieChangeObserver()
 
   public override init() {
     formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ"
     super.init()
+  }
+
+  deinit {
+    cookieChangeObserver.stop()
+  }
+
+  @objc(startCookieChangeObserving:)
+  public func startCookieChangeObserving(
+    _ handler: @escaping (String) -> Void
+  ) {
+    cookieChangeObserver.start { store in
+      handler(store.rawValue)
+    }
+  }
+
+  @objc(stopCookieChangeObserving)
+  public func stopCookieChangeObserving() {
+    cookieChangeObserver.stop()
   }
 
   @objc(set:cookie:useWebKit:resolve:reject:)

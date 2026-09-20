@@ -7,6 +7,8 @@
 // dependent Objective-C++ target when C++ modules are disabled. Declare the
 // stable Objective-C surface exported by CookieManagerImpl instead.
 @interface CookieManagerImpl : NSObject
+- (void)startCookieChangeObserving:(void (^)(NSString *store))handler;
+- (void)stopCookieChangeObserving;
 - (void)set:(NSString *)url
          cookie:(NSDictionary *)cookie
       useWebKit:(BOOL)useWebKit
@@ -81,6 +83,28 @@
     _impl = [CookieManagerImpl new];
   }
   return self;
+}
+
+- (void)invalidate
+{
+  [_impl stopCookieChangeObserving];
+}
+
+- (void)startCookieChangeObserving
+{
+  __weak CookieManager *weakSelf = self;
+  [_impl startCookieChangeObserving:^(NSString *store) {
+    CookieManager *strongSelf = weakSelf;
+    if (strongSelf == nil) {
+      return;
+    }
+    [strongSelf emitOnCookieChange:@{ @"store" : store }];
+  }];
+}
+
+- (void)stopCookieChangeObserving
+{
+  [_impl stopCookieChangeObserving];
 }
 
 #pragma mark - Shared helpers

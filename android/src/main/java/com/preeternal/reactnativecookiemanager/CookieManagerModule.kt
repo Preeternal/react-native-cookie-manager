@@ -35,6 +35,12 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
 
   override fun getName(): String = NAME
 
+  override fun startCookieChangeObserving() {
+    rejectCookieChangeObservation()
+  }
+
+  override fun stopCookieChangeObserving() = Unit
+
   override fun setCookie(
     url: String,
     cookie: ReadableMap,
