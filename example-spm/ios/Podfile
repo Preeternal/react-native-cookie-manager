@@ -1,0 +1,13 @@
+# This restriction applies only to the SwiftPM example app. The library itself
+# continues to support CocoaPods through CookieManager.podspec, as exercised by
+# the regular example app.
+#
+# This project intentionally builds with Swift Package Manager only. React
+# Native CLI 20.2 still discovers the iOS project by looking for a Podfile, so
+# this stub keeps `react-native spm` and Xcode's autolinking sync working.
+#
+# Running `pod install` here would mix CocoaPods with the already-injected
+# SwiftPM graph and could link React Native or this library twice. Fail clearly
+# instead of silently turning this SPM verification project into a hybrid.
+raise 'CookieManagerExampleSpm uses Swift Package Manager. Do not run ' \
+      '`pod install` here. Use ../example to test CocoaPods.'

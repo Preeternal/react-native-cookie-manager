@@ -299,7 +299,6 @@
 				"RN_SPM_REACT_BINARY[sdk=iphoneos*]" = "$(SRCROOT)/build/xcframeworks/$(RN_SPM_FLAVOR)/React.xcframework/ios-arm64/React.framework/React";
 				"RN_SPM_REACT_FRAMEWORK[sdk=iphoneos*]" = "$(SRCROOT)/build/xcframeworks/$(RN_SPM_FLAVOR)/React.xcframework/ios-arm64/React.framework";
 				RN_SPM_FLAVOR = debug;
-				HERMES_CLI_PATH = "/Users/preeternal/Projects/react-native-cookie-manager/example-spm/node_modules/hermes-compiler/hermesc/osx-bin/hermesc";
 				REACT_NATIVE_PATH = "../node_modules/react-native";
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -400,7 +399,6 @@
 				"RN_SPM_REACT_BINARY[sdk=iphoneos*]" = "$(SRCROOT)/build/xcframeworks/$(RN_SPM_FLAVOR)/React.xcframework/ios-arm64/React.framework/React";
 				"RN_SPM_REACT_FRAMEWORK[sdk=iphoneos*]" = "$(SRCROOT)/build/xcframeworks/$(RN_SPM_FLAVOR)/React.xcframework/ios-arm64/React.framework";
 				RN_SPM_FLAVOR = release;
-				HERMES_CLI_PATH = "/Users/preeternal/Projects/react-native-cookie-manager/example-spm/node_modules/hermes-compiler/hermesc/osx-bin/hermesc";
 				REACT_NATIVE_PATH = "../node_modules/react-native";
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				FRAMEWORK_SEARCH_PATHS = (

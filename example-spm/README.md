@@ -15,6 +15,11 @@ yarn example:spm ios
 The initial CocoaPods-to-SPM migration has already been applied to the committed
 Xcode project; do not run `--deintegrate` again.
 
+The `ios/Podfile` is only a React Native CLI project-discovery stub. It installs
+nothing and deliberately fails if somebody runs `pod install`. The setup
+scripts also remove React Native 0.87.1's machine-specific `HERMES_CLI_PATH`
+from the committed Xcode files after every SwiftPM refresh.
+
 This project was bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
 
 # Getting Started
