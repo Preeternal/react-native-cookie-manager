@@ -4,6 +4,12 @@
 
 A modern, New Architecture–only Cookie Manager for React Native. This is a drop-in replacement for `@react-native-cookies/cookies`, rewritten with TypeScript, TurboModules, and platform-native implementations for iOS (Swift) and Android (Kotlin).
 
+> Starting with `v7.0.0`, this package supports only React Native's New
+> Architecture. Projects that still require the legacy bridge should stay 
+> on `v6.x`.
+
+The package works in bare React Native apps and in Expo Dev Builds (custom native builds).
+
 ## Upstream / credits
 
 This package is based on the public API and behavior of [`@react-native-cookies/cookies`](https://github.com/react-native-cookies/cookies). Big thanks to the upstream maintainers and contributors for the original implementation and long-term work on the project.
@@ -65,10 +71,6 @@ the manifest in a package-manager patch.
 The SwiftPM commands and generated layout are experimental in React Native
 0.87 and may change in later releases. Do not use this integration in
 production yet. See the [React Native 0.87 release notes](https://reactnative.dev/blog/2026/08/11/react-native-0.87#experimental-swift-package-manager-support-for-ios).
-
-Starting with `v7.0.0`, this package supports only React Native's New Architecture. Projects that still require the legacy bridge should stay on `v6.x`.
-
-The package works in bare React Native apps and in Expo Dev Builds (custom native builds).
 
 ### AndroidX WebKit version
 
