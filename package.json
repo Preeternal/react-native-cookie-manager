@@ -21,6 +21,7 @@
     "ios",
     "cpp",
     "app.plugin.js",
+    "Package.swift",
     "*.podspec",
     "react-native.config.js",
     "!ios/build",
@@ -37,9 +38,10 @@
   ],
   "scripts": {
     "example": "yarn workspace @preeternal/react-native-cookie-manager-example",
-    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
+    "example:spm": "yarn workspace @preeternal/react-native-cookie-manager-example-spm",
+    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build example-spm/android/build example-spm/android/app/build example-spm/ios/build lib",
     "prepare": "bob build",
-    "typecheck": "tsc",
+    "typecheck": "tsc -p tsconfig.build.json && yarn workspace @preeternal/react-native-cookie-manager-example-spm typecheck",
     "test": "jest",
     "release": "release-it --only-version",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
@@ -100,7 +102,8 @@
     "react-native": "*"
   },
   "workspaces": [
-    "example"
+    "example",
+    "example-spm"
   ],
   "packageManager": "yarn@4.18.0",
   "react-native-builder-bob": {
@@ -142,8 +145,12 @@
         "preeternal-react-native-cookie-manager-source"
       ]
     },
+    "moduleNameMapper": {
+      "^@preeternal/react-native-cookie-manager$": "<rootDir>/src/index.tsx"
+    },
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",
+      "<rootDir>/example-spm/node_modules",
       "<rootDir>/lib/"
     ]
   },

@@ -28,11 +28,43 @@ yarn add @preeternal/react-native-cookie-manager
 npm install @preeternal/react-native-cookie-manager
 ```
 
-Then install iOS pods:
+### CocoaPods (default)
+
+React Native still selects CocoaPods by default. This library keeps its
+podspec, so existing apps and React Native versions before 0.87 continue to
+install it normally:
 
 ```sh
 cd ios && bundle exec pod install
 ```
+
+### Swift Package Manager (React Native 0.87+)
+
+React Native 0.87 added experimental, opt-in SwiftPM integration. This library
+ships a compatible `Package.swift`; CocoaPods remains the default and supported
+production path.
+
+To migrate an app once:
+
+```sh
+cd ios
+npx react-native spm --deintegrate
+```
+
+After a fresh clone or in CI, generate the SwiftPM workspace before building:
+
+```sh
+cd ios
+npx react-native spm
+```
+
+Every native dependency must have a compatible `Package.swift`. If a dependency
+does not provide one, generate it with `npx react-native spm scaffold` and keep
+the manifest in a package-manager patch.
+
+The SwiftPM commands and generated layout are experimental in React Native
+0.87 and may change in later releases. Do not use this integration in
+production yet. See the [React Native 0.87 release notes](https://reactnative.dev/blog/2026/08/11/react-native-0.87#experimental-swift-package-manager-support-for-ios).
 
 Starting with `v7.0.0`, this package supports only React Native's New Architecture. Projects that still require the legacy bridge should stay on `v6.x`.
 

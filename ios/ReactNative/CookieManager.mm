@@ -1,12 +1,65 @@
 #import "CookieManager.h"
 
-// Universal include for framework/static builds; require generated Swift header
-#if __has_include(<CookieManager/CookieManager-Swift.h>)
+// SwiftPM exposes the implementation as its own module, while CocoaPods
+// generates the header under the pod target's module name.
+#if defined(SWIFT_PACKAGE)
+// SwiftPM does not expose the generated Swift compatibility header to a
+// dependent Objective-C++ target when C++ modules are disabled. Declare the
+// stable Objective-C surface exported by CookieManagerImpl instead.
+@interface CookieManagerImpl : NSObject
+- (void)set:(NSString *)url
+         cookie:(NSDictionary *)cookie
+      useWebKit:(BOOL)useWebKit
+        resolve:(RCTPromiseResolveBlock)resolve
+         reject:(RCTPromiseRejectBlock)reject;
+- (void)setFromResponse:(NSString *)url
+                 cookie:(NSString *)cookie
+                resolve:(RCTPromiseResolveBlock)resolve
+                 reject:(RCTPromiseRejectBlock)reject;
+- (void)getFromResponse:(NSString *)url
+                resolve:(RCTPromiseResolveBlock)resolve
+                 reject:(RCTPromiseRejectBlock)reject;
+- (void)get:(NSString *)url
+       useWebKit:(BOOL)useWebKit
+         resolve:(RCTPromiseResolveBlock)resolve
+          reject:(RCTPromiseRejectBlock)reject;
+- (void)getAsArray:(NSString *)url
+          useWebKit:(BOOL)useWebKit
+            resolve:(RCTPromiseResolveBlock)resolve
+             reject:(RCTPromiseRejectBlock)reject;
+- (void)getCookieHeader:(NSString *)url
+               useWebKit:(BOOL)useWebKit
+                 resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject;
+- (void)clearAll:(BOOL)useWebKit
+         resolve:(RCTPromiseResolveBlock)resolve
+          reject:(RCTPromiseRejectBlock)reject;
+- (void)clearAllStoresWithResolve:(RCTPromiseResolveBlock)resolve
+                           reject:(RCTPromiseRejectBlock)reject;
+- (void)clearByName:(NSString *)url
+               name:(NSString *)name
+          useWebKit:(BOOL)useWebKit
+            resolve:(RCTPromiseResolveBlock)resolve
+             reject:(RCTPromiseRejectBlock)reject;
+- (void)getAll:(BOOL)useWebKit
+       resolve:(RCTPromiseResolveBlock)resolve
+        reject:(RCTPromiseRejectBlock)reject;
+- (void)getAllAsArray:(BOOL)useWebKit
+              resolve:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject;
+- (void)flushWithResolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject;
+- (void)removeSessionCookiesWithClearFoundation:(BOOL)clearFoundation
+                                     clearWebKit:(BOOL)clearWebKit
+                                         resolve:(RCTPromiseResolveBlock)resolve
+                                          reject:(RCTPromiseRejectBlock)reject;
+@end
+#elif __has_include(<CookieManager/CookieManager-Swift.h>)
 #import <CookieManager/CookieManager-Swift.h>
 #elif __has_include("CookieManager-Swift.h")
 #import "CookieManager-Swift.h"
 #else
-#error "CookieManager-Swift.h not found; ensure Swift header is generated and exposed by CocoaPods"
+#error "CookieManager Swift module not found; ensure CocoaPods or SwiftPM is configured"
 #endif
 
 @interface CookieManager ()

@@ -6,6 +6,12 @@
 
 This major release updates the project to the latest `create-react-native-library` scaffold and makes the New Architecture the only supported React Native runtime. The public JavaScript CookieManager API and native cookie behavior remain unchanged.
 
+### Added
+
+- Added Swift Package Manager support for iOS through a self-managed `Package.swift`, while retaining CocoaPods compatibility.
+- Added a podless React Native 0.87 `example-spm` workspace app that exercises the local package through React Native autolinking and Metro.
+- Added CI coverage that generates the RN 0.87 SwiftPM workspace and builds the example for an iOS Simulator.
+
 ### Breaking changes
 
 - Removed the legacy iOS bridge implementation and its conditional old-architecture exports.
@@ -14,6 +20,7 @@ This major release updates the project to the latest `create-react-native-librar
 ### Compatibility
 
 - Updated the development and example-app baseline to React Native `0.86.2`.
+- Verified the experimental, opt-in SwiftPM integration with React Native `0.87.1`; CocoaPods remains the default supported production path.
 - Updated the library Android toolchain to Java 17 source and target compatibility.
 - Kept the package as a codegen-backed TurboModule on both iOS and Android.
 
@@ -23,6 +30,11 @@ This major release updates the project to the latest `create-react-native-librar
 - Updated React Native Builder Bob to `0.43.1`, Turbo to `2.10.8`, TypeScript to `6.0.3`, and the matching lint/format dependencies.
 - Added the scaffold's package-specific source export condition for local development and Metro resolution.
 - Added Jest, Lefthook, Commitlint, and Release It configuration from the current scaffold.
+- Preserved the standalone Swift unit-test suite alongside the React Native SwiftPM package manifest.
+
+### Documentation
+
+- Documented one-time CocoaPods deintegration, fresh-clone/CI SwiftPM generation, and the requirement that every native dependency provide or patch in a compatible `Package.swift`.
 
 ---
 

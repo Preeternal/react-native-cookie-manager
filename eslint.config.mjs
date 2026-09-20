@@ -32,6 +32,9 @@ export default defineConfig([
       'example/android/build/',
       'example/android/app/build/',
       'example/ios/build/',
+      'example-spm/android/build/',
+      'example-spm/android/app/build/',
+      'example-spm/ios/build/',
     ],
   },
 ]);
