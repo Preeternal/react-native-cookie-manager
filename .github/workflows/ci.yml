@@ -335,9 +335,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-react-native-spm-
 
-      - name: Generate SwiftPM integration
-        run: yarn example:spm spm:update
-
       - name: Build RN 0.87 SwiftPM example for iOS
         run: |
           set -euo pipefail

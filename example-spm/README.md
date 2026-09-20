@@ -12,6 +12,9 @@ yarn install
 yarn example:spm ios
 ```
 
+Both `ios` and `build:ios` regenerate the ignored SwiftPM autolinking output
+before invoking Xcode, so they also work on a clean checkout and in CI.
+
 The initial CocoaPods-to-SPM migration has already been applied to the committed
 Xcode project; do not run `--deintegrate` again.
 
