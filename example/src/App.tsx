@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import CookieManager, {
+  isCookieManagerError,
   type Cookie,
   type CookieChangeEvent,
   type Cookies,
@@ -25,6 +26,13 @@ import {
 const DEFAULT_DOMAIN = '.example.com';
 
 const normalizeDomainInput = (value: string): string => value.trim();
+
+const describeError = (error: unknown): string => {
+  if (isCookieManagerError(error)) {
+    return `${error.code}: ${error.message}`;
+  }
+  return error instanceof Error ? error.message : String(error);
+};
 
 const buildUrlForDomain = (domain: string): string => {
   const normalized = domain.startsWith('.') ? domain.slice(1) : domain;
@@ -120,26 +128,26 @@ export default function App() {
     try {
       snapshot.sharedForUrl = await CookieManager.get(urlToInspect, false);
     } catch (error) {
-      errors.sharedForUrl = String(error);
+      errors.sharedForUrl = describeError(error);
     }
 
     if (Platform.OS === 'ios') {
       try {
         snapshot.webKitForUrl = await CookieManager.get(urlToInspect, true);
       } catch (error) {
-        errors.webKitForUrl = String(error);
+        errors.webKitForUrl = describeError(error);
       }
 
       try {
         snapshot.allShared = await CookieManager.getAll(false);
       } catch (error) {
-        errors.allShared = String(error);
+        errors.allShared = describeError(error);
       }
 
       try {
         snapshot.allWebKit = await CookieManager.getAll(true);
       } catch (error) {
-        errors.allWebKit = String(error);
+        errors.allWebKit = describeError(error);
       }
     }
 
@@ -195,13 +203,13 @@ export default function App() {
   const handleAddCookiePress = useCallback(() => {
     Keyboard.dismiss();
     addCookieForDomain().catch((error) => {
-      setStatus(`Failed to add cookie: ${String(error)}`);
+      setStatus(`Failed to add cookie: ${describeError(error)}`);
     });
   }, [addCookieForDomain]);
 
   const handleRefreshPress = useCallback(() => {
     refreshCookies(inspectUrl).catch((error) => {
-      setStatus(`Refresh failed: ${String(error)}`);
+      setStatus(`Refresh failed: ${describeError(error)}`);
     });
   }, [inspectUrl, refreshCookies]);
 
@@ -221,7 +229,7 @@ export default function App() {
         );
       })
       .catch((error) => {
-        setStatus(`Device smoke tests failed: ${String(error)}`);
+        setStatus(`Device smoke tests failed: ${describeError(error)}`);
       })
       .finally(() => {
         setDeviceTestsRunning(false);
@@ -245,7 +253,7 @@ export default function App() {
         );
       })
       .catch((error) => {
-        setPersistenceStatus(`Preparation failed: ${String(error)}`);
+        setPersistenceStatus(`Preparation failed: ${describeError(error)}`);
       })
       .finally(() => {
         setPersistenceTestRunning(false);
@@ -268,7 +276,7 @@ export default function App() {
         );
       })
       .catch((error) => {
-        setPersistenceStatus(`Verification failed: ${String(error)}`);
+        setPersistenceStatus(`Verification failed: ${describeError(error)}`);
       })
       .finally(() => {
         setPersistenceTestRunning(false);
@@ -297,7 +305,7 @@ export default function App() {
           });
         })
         .catch((error) => {
-          setStatus(`Cookie-change refresh failed: ${String(error)}`);
+          setStatus(`Cookie-change refresh failed: ${describeError(error)}`);
         });
     });
 

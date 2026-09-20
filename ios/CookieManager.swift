@@ -40,20 +40,23 @@ public class CookieManagerImpl: NSObject {
     reject: @escaping RCTPromiseRejectBlock
   ) {
     guard let parsedUrl = URL(string: url as String) else {
-      reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+      reject(CookieManagerErrorCode.invalidURL.rawValue, Self.invalidURLMissingHTTP, nil)
       return
     }
     let cookie: HTTPCookie
     do {
       cookie = try makeHTTPCookie(url: parsedUrl, props: props)
+    } catch let error as CookieManagerInputError {
+      reject(error.code.rawValue, error.localizedDescription, error)
+      return
     } catch {
-      reject("cookie_set_error", error.localizedDescription, error)
+      reject(CookieManagerErrorCode.invalidCookie.rawValue, error.localizedDescription, error)
       return
     }
 
     if useWebKit {
       guard #available(iOS 11.0, *) else {
-        reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
+        reject(CookieManagerErrorCode.notSupported.rawValue, Self.notAvailableErrorMessage, nil)
         return
       }
       CookieStoreAccess.set(cookie, in: .webKit) { resolve(true) }
@@ -70,7 +73,7 @@ public class CookieManagerImpl: NSObject {
     reject: @escaping RCTPromiseRejectBlock
   ) {
     guard let parsedUrl = URL(string: url as String) else {
-      reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+      reject(CookieManagerErrorCode.invalidURL.rawValue, Self.invalidURLMissingHTTP, nil)
       return
     }
     let cookies = HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": cookie], for: parsedUrl)
@@ -92,13 +95,13 @@ public class CookieManagerImpl: NSObject {
       ["http", "https"].contains(scheme),
       parsedUrl.host != nil
     else {
-      reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+      reject(CookieManagerErrorCode.invalidURL.rawValue, Self.invalidURLMissingHTTP, nil)
       return
     }
     let request = URLRequest(url: parsedUrl)
     URLSession.shared.dataTask(with: request) { _, response, error in
       if let error {
-        reject("get_from_response_error", error.localizedDescription, error)
+        reject(CookieManagerErrorCode.networkError.rawValue, error.localizedDescription, error)
         return
       }
 
@@ -106,7 +109,7 @@ public class CookieManagerImpl: NSObject {
         let httpResponse = response as? HTTPURLResponse,
         let headerFields = httpResponse.allHeaderFields as? [String: String]
       else {
-        reject("get_from_response_error", "Invalid response", nil)
+        reject(CookieManagerErrorCode.networkError.rawValue, "Invalid response", nil)
         return
       }
 
@@ -153,17 +156,17 @@ public class CookieManagerImpl: NSObject {
     reject: @escaping RCTPromiseRejectBlock
   ) {
     guard let parsedUrl = URL(string: url as String) else {
-      reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+      reject(CookieManagerErrorCode.invalidURL.rawValue, Self.invalidURLMissingHTTP, nil)
       return
     }
 
     if useWebKit {
       guard #available(iOS 11.0, *) else {
-        reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
+        reject(CookieManagerErrorCode.notSupported.rawValue, Self.notAvailableErrorMessage, nil)
         return
       }
       guard parsedUrl.host?.isEmpty == false else {
-        reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+        reject(CookieManagerErrorCode.invalidURL.rawValue, Self.invalidURLMissingHTTP, nil)
         return
       }
 
@@ -188,7 +191,7 @@ public class CookieManagerImpl: NSObject {
   ) {
     if useWebKit {
       guard #available(iOS 11.0, *) else {
-        reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
+        reject(CookieManagerErrorCode.notSupported.rawValue, Self.notAvailableErrorMessage, nil)
         return
       }
       clearWebKitCookies {
@@ -206,7 +209,7 @@ public class CookieManagerImpl: NSObject {
     reject: @escaping RCTPromiseRejectBlock
   ) {
     guard #available(iOS 11.0, *) else {
-      reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
+      reject(CookieManagerErrorCode.notSupported.rawValue, Self.notAvailableErrorMessage, nil)
       return
     }
 
@@ -232,16 +235,16 @@ public class CookieManagerImpl: NSObject {
     reject: @escaping RCTPromiseRejectBlock
   ) {
     guard let parsedUrl = URL(string: url as String) else {
-      reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+      reject(CookieManagerErrorCode.invalidURL.rawValue, Self.invalidURLMissingHTTP, nil)
       return
     }
     if useWebKit {
       guard #available(iOS 11.0, *) else {
-        reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
+        reject(CookieManagerErrorCode.notSupported.rawValue, Self.notAvailableErrorMessage, nil)
         return
       }
       guard let topLevelDomain = parsedUrl.host, !topLevelDomain.isEmpty else {
-        reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+        reject(CookieManagerErrorCode.invalidURL.rawValue, Self.invalidURLMissingHTTP, nil)
         return
       }
 
@@ -318,7 +321,7 @@ public class CookieManagerImpl: NSObject {
   ) {
     if useWebKit {
       guard #available(iOS 11.0, *) else {
-        reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
+        reject(CookieManagerErrorCode.notSupported.rawValue, Self.notAvailableErrorMessage, nil)
         return
       }
       CookieStoreAccess.loadAll(from: .webKit, completion: completion)
@@ -386,18 +389,18 @@ public class CookieManagerImpl: NSObject {
     completion: @escaping ([HTTPCookie]) -> Void
   ) {
     guard let parsedUrl = URL(string: url as String) else {
-      reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+      reject(CookieManagerErrorCode.invalidURL.rawValue, Self.invalidURLMissingHTTP, nil)
       return
     }
 
     if useWebKit {
       guard #available(iOS 11.0, *) else {
-        reject("web_kit_unavailable", Self.notAvailableErrorMessage, nil)
+        reject(CookieManagerErrorCode.notSupported.rawValue, Self.notAvailableErrorMessage, nil)
         return
       }
 
       guard parsedUrl.host?.isEmpty == false else {
-        reject("invalid_url", Self.invalidURLMissingHTTP, nil)
+        reject(CookieManagerErrorCode.invalidURL.rawValue, Self.invalidURLMissingHTTP, nil)
         return
       }
 
@@ -431,14 +434,20 @@ public class CookieManagerImpl: NSObject {
 
   private func makeHTTPCookie(url: URL, props: NSDictionary) throws -> HTTPCookie {
     guard let topLevelDomain = url.host, !topLevelDomain.isEmpty else {
-      throw NSError(domain: "CookieManager", code: -1, userInfo: [NSLocalizedDescriptionKey: Self.invalidURLMissingHTTP])
+      throw CookieManagerInputError(
+        code: .invalidURL,
+        message: Self.invalidURLMissingHTTP
+      )
     }
 
     guard
       let name = props["name"] as? String,
       let value = props["value"] as? String
     else {
-      throw NSError(domain: "CookieManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Missing name or value"])
+      throw CookieManagerInputError(
+        code: .invalidCookie,
+        message: "Missing name or value"
+      )
     }
 
     let path = (props["path"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "/"
@@ -450,7 +459,7 @@ public class CookieManagerImpl: NSObject {
     if let rawDomain = domain {
       if !CookieDomainLogic.isMatchingDomain(originDomain: topLevelDomain, cookieDomain: rawDomain) {
         let reason = String(format: Self.invalidDomains, topLevelDomain, rawDomain)
-        throw NSError(domain: "CookieManager", code: -1, userInfo: [NSLocalizedDescriptionKey: reason])
+        throw CookieManagerInputError(code: .domainMismatch, message: reason)
       }
       domain = rawDomain
     } else {
@@ -467,12 +476,20 @@ public class CookieManagerImpl: NSObject {
     if let version {
       cookieProperties[.version] = version
     }
-    try CookieAttributeLogic.apply(
-      props: props,
-      secure: secure,
-      to: &cookieProperties,
-      parseDate: parseDate
-    )
+    do {
+      try CookieAttributeLogic.apply(
+        props: props,
+        secure: secure,
+        to: &cookieProperties,
+        parseDate: parseDate
+      )
+    } catch {
+      throw CookieManagerInputError(
+        code: .invalidCookie,
+        message: error.localizedDescription,
+        underlyingError: error
+      )
+    }
     if secure {
       cookieProperties[.secure] = secure
     }
@@ -484,7 +501,10 @@ public class CookieManagerImpl: NSObject {
       return cookie
     }
 
-    throw NSError(domain: "CookieManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unable to create cookie"])
+    throw CookieManagerInputError(
+      code: .invalidCookie,
+      message: "Unable to create cookie"
+    )
   }
 
   private func createCookieData(_ cookie: HTTPCookie) -> [String: Any] {

@@ -1,5 +1,6 @@
 import { Platform, TurboModuleRegistry, type TurboModule } from 'react-native';
 import CookieManager, {
+  isCookieManagerError,
   type Cookie,
 } from '@preeternal/react-native-cookie-manager';
 
@@ -63,12 +64,11 @@ const assert: (condition: unknown, message: string) => asserts condition = (
   }
 };
 
-const errorCode = (error: unknown): string | undefined => {
-  if (typeof error !== 'object' || error === null || !('code' in error)) {
-    return undefined;
+const describeError = (error: unknown): string => {
+  if (isCookieManagerError(error)) {
+    return `${error.code}: ${error.message}`;
   }
-
-  return String(error.code);
+  return error instanceof Error ? error.message : String(error);
 };
 
 const cookieCountInHeader = (header: string, name: string): number =>
@@ -142,7 +142,7 @@ const recordCheck = async (
     checks.push({
       name,
       status: error instanceof SkippedCheck ? 'skipped' : 'failed',
-      detail: error instanceof Error ? error.message : String(error),
+      detail: describeError(error),
     });
   }
 };
@@ -348,7 +348,11 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
         );
         assert(removed, 'clearByName() returned false');
       } catch (error) {
-        if (Platform.OS === 'android' && errorCode(error) === 'not_supported') {
+        if (
+          Platform.OS === 'android' &&
+          isCookieManagerError(error) &&
+          error.code === 'not_supported'
+        ) {
           throw new SkippedCheck(
             'Android System WebView does not support GET_COOKIE_INFO'
           );

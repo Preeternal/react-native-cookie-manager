@@ -221,6 +221,42 @@ The public API remains compatible with `@react-native-cookies/cookies`.
 
 On Android, `clearByName()` relies on `GET_COOKIE_INFO` support in the device's Android System WebView provider. It rejects with `not_supported` on devices with an older provider. The method clears every same-name domain/path variant visible to the supplied URL. A cookie restricted to `/account` is not visible from a `/` URL, so use a matching path (and multiple calls for unrelated paths). On iOS, the method clears same-domain variants across all paths in the selected store.
 
+### Error handling
+
+Native failures use a small platform-neutral set of stable codes. Use `isCookieManagerError()` before reading `code`:
+
+```ts
+import CookieManager, {
+  isCookieManagerError,
+} from '@preeternal/react-native-cookie-manager';
+
+try {
+  await CookieManager.set(url, cookie);
+} catch (error) {
+  if (isCookieManagerError(error)) {
+    switch (error.code) {
+      case 'domain_mismatch':
+        // The cookie domain cannot be set from this URL.
+        break;
+      case 'invalid_cookie':
+        // Fix the structured cookie input.
+        break;
+    }
+  }
+}
+```
+
+| Code | Meaning |
+| --- | --- |
+| `invalid_url` | The supplied URL is invalid or lacks the required HTTP(S) origin. |
+| `invalid_cookie` | Cookie input cannot be represented or accepted as a cookie. |
+| `domain_mismatch` | The cookie domain does not match the URL host or one of its parent domains. |
+| `not_supported` | The requested capability is unavailable on this platform or native provider. |
+| `storage_error` | The native cookie store could not complete a read, write, deletion, or persistence operation. |
+| `network_error` | The deprecated `getFromResponse()` request failed. No other method performs network I/O. |
+
+The human-readable `message` and any native `cause` are diagnostic details and are not stable API. Do not branch on their contents.
+
 ### Cookie shape
 
 ```ts

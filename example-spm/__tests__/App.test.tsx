@@ -9,6 +9,7 @@ import App from '../src/App';
 
 jest.mock('@preeternal/react-native-cookie-manager', () => ({
   __esModule: true,
+  isCookieManagerError: jest.fn(() => false),
   default: {
     addCookieChangeListener: jest.fn(() => ({ remove: jest.fn() })),
     clearAllStores: jest.fn(async () => true),

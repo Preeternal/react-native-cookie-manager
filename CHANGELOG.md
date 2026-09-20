@@ -10,12 +10,12 @@ Entries under **Planned before release** are accepted v7 scope but are not imple
 
 ### Planned before release
 
-- Export a small, platform-neutral set of stable error codes, a `CookieManagerError` shape, and a type guard. Equivalent failures use the same code on iOS and Android; native messages and causes remain diagnostic rather than stable API.
 - Tighten `set()` validation consistently across iOS and Android, validating the complete structured input before any mutation. Fields that contain control characters or inject `Set-Cookie` attributes reject; `setFromResponse()` remains the intentionally raw API for trusted server header values.
 
 ### Added
 
 - Added iOS-only `addCookieChangeListener()` for Foundation and the default WebKit store. Its minimal `{ store: 'foundation' | 'webKit' }` payload is an invalidation signal rather than an exact cookie delta or one-event-per-mutation guarantee. Native observers are shared across subscribers and are removed after the last subscription; Android throws `not_supported` instead of emulating incomplete events.
+- Added the platform-neutral `CookieManagerErrorCode` and `CookieManagerError` types plus `isCookieManagerError()`. iOS, Android, and JavaScript-created errors now share the stable codes `invalid_url`, `invalid_cookie`, `domain_mismatch`, `not_supported`, `storage_error`, and `network_error`; native messages and causes remain diagnostic details.
 - Added Swift Package Manager support for iOS through a self-managed `Package.swift`, while retaining CocoaPods compatibility.
 - Added a podless React Native 0.87 `example-spm` workspace app that exercises the local package through React Native autolinking and Metro.
 - Added CI coverage that generates the RN 0.87 SwiftPM workspace and builds the example for an iOS Simulator.
@@ -24,6 +24,7 @@ Entries under **Planned before release** are accepted v7 scope but are not imple
 
 - Removed the legacy iOS bridge implementation and its conditional old-architecture exports.
 - React Native projects that still require the legacy bridge must stay on `v6.x`.
+- Replaced legacy method-specific rejection codes such as `cookie_set_error`, `clear_all_error`, and `web_kit_unavailable` with the stable platform-neutral taxonomy. Applications that inspect rejection codes must migrate to `isCookieManagerError()` and the documented `CookieManagerErrorCode` values.
 - **Planned:** structured `set()` input that native stores previously accepted inconsistently will reject when it contains invalid cookie syntax or attempts to inject raw attributes. Applications should use encoded values, or `setFromResponse()` for trusted raw `Set-Cookie` headers.
 
 ### Compatibility
@@ -44,12 +45,14 @@ Entries under **Planned before release** are accepted v7 scope but are not imple
 ### Tests
 
 - Added JavaScript lifecycle coverage for shared native observation, last-subscriber cleanup, repeated subscribe/unsubscribe cycles, payload forwarding, and Android rejection.
+- Added JavaScript, Swift, and Kotlin contract coverage that locks the same six public error codes across all layers and rejects legacy or unknown codes in the public type guard.
 - Added Swift lifecycle and native-store integration coverage for Foundation and default WebKit change notifications, plus Android unit coverage for the unsupported observation contract.
 - Verified the event-enabled native module through both CocoaPods and React Native 0.87 SwiftPM example builds.
 
 ### Documentation
 
 - Added a live invalidation example to both CocoaPods and SwiftPM apps: it keeps one listener for the screen lifecycle, uses the emitting store to re-read the current URL after each event, and removes the subscription on unmount.
+- Documented code-based error handling and the intentionally unstable status of native messages and causes; both example apps now display stable codes through `isCookieManagerError()` instead of parsing native strings.
 - Documented one-time CocoaPods deintegration, fresh-clone/CI SwiftPM generation, and the requirement that every native dependency provide or patch in a compatible `Package.swift`.
 
 ---

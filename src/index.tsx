@@ -6,6 +6,12 @@ import CookieManagerNative, {
   type CookieSameSite,
   type Cookies,
 } from './NativeCookieManager';
+import {
+  createCookieManagerError,
+  isCookieManagerError,
+  type CookieManagerError,
+  type CookieManagerErrorCode,
+} from './errors';
 
 export type IOSCookieStore = 'foundation' | 'webKit' | 'both';
 
@@ -21,11 +27,10 @@ const addCookieChangeListener = (
   listener: CookieChangeListener
 ): EventSubscription => {
   if (Platform.OS !== 'ios') {
-    const error = new Error(
+    throw createCookieManagerError(
+      'not_supported',
       'Cookie change subscriptions are only supported on iOS'
-    ) as Error & { code: 'not_supported' };
-    error.code = 'not_supported';
-    throw error;
+    );
   }
 
   const nativeSubscription = CookieManagerNative.onCookieChange(listener);
@@ -106,7 +111,10 @@ export type {
   Cookie,
   CookieChangeEvent,
   CookieChangeStore,
+  CookieManagerError,
+  CookieManagerErrorCode,
   CookieSameSite,
   Cookies,
 };
+export { isCookieManagerError };
 export default CookieManager;

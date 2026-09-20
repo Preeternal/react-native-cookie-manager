@@ -21,7 +21,7 @@ jest.mock('../NativeCookieManager', () => ({
 }));
 
 import mockNativeModule from '../NativeCookieManager';
-import CookieManager from '../index';
+import CookieManager, { isCookieManagerError } from '../index';
 
 const mockRemoveSessionCookies = jest.mocked(
   mockNativeModule.removeSessionCookies
@@ -102,6 +102,7 @@ describe('addCookieChangeListener', () => {
       CookieManager.addCookieChangeListener(jest.fn());
       throw new Error('Expected addCookieChangeListener to throw');
     } catch (error) {
+      expect(isCookieManagerError(error)).toBe(true);
       expect(error).toMatchObject({ code: 'not_supported' });
     }
 
