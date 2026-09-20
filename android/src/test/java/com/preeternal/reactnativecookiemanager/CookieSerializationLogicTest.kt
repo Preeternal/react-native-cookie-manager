@@ -108,18 +108,6 @@ class CookieSerializationLogicTest {
     assertNull(parseCookieExpires("not-a-date"))
   }
 
-  @Test
-  fun preservesLegacyAttributeSegmentsInsideValue() {
-    val result = serializeCookieForSet(
-      cookie(value = "value; Priority=High")
-    )
-
-    assertEquals(
-      "session=value; Priority=High; Domain=example.com; Path=/",
-      result
-    )
-  }
-
   private fun cookie(
     value: String = "value",
     expiresAtMillis: Long? = null,

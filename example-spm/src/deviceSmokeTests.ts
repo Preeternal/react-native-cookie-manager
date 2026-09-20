@@ -2,6 +2,7 @@ import { Platform, TurboModuleRegistry, type TurboModule } from 'react-native';
 import CookieManager, {
   isCookieManagerError,
   type Cookie,
+  type IOSCookieStore,
 } from '@preeternal/react-native-cookie-manager';
 
 const TEST_URL = 'https://app.example.com/account/profile';
@@ -12,6 +13,7 @@ const PERSISTENT_COOKIE = `${COOKIE_PREFIX}persistent`;
 const EXPIRED_COOKIE = `${COOKIE_PREFIX}expired`;
 const DUPLICATE_COOKIE = `${COOKIE_PREFIX}duplicate`;
 const RAW_COOKIE = `${COOKIE_PREFIX}raw`;
+const LEGACY_VALIDATION_COOKIE = `${COOKIE_PREFIX}legacy_validation`;
 const NETWORK_COOKIE = `${COOKIE_PREFIX}network`;
 const METRO_TEST_PATH = '/__cookie_manager_smoke__';
 const PERSISTENCE_URL = 'https://persistence.example.com/';
@@ -38,6 +40,7 @@ export type DeviceSmokeReport = {
 
 type CookieStore = {
   label: string;
+  iosCookieStore: IOSCookieStore;
   useWebKit: boolean;
 };
 
@@ -50,10 +53,20 @@ class SkippedCheck extends Error {}
 const stores: ReadonlyArray<CookieStore> =
   Platform.OS === 'ios'
     ? [
-        { label: 'Foundation', useWebKit: false },
-        { label: 'WebKit', useWebKit: true },
+        {
+          label: 'Foundation',
+          iosCookieStore: 'foundation',
+          useWebKit: false,
+        },
+        { label: 'WebKit', iosCookieStore: 'webKit', useWebKit: true },
       ]
-    : [{ label: 'Android shared store', useWebKit: false }];
+    : [
+        {
+          label: 'Android shared store',
+          iosCookieStore: 'foundation',
+          useWebKit: false,
+        },
+      ];
 
 const assert: (condition: unknown, message: string) => asserts condition = (
   condition,
@@ -184,7 +197,7 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
             value: `${nonce}_${store.useWebKit ? 'webkit' : 'shared'}`,
             path: '/',
           },
-          store.useWebKit
+          { iosCookieStore: store.iosCookieStore }
         ),
         CookieManager.set(
           TEST_URL,
@@ -197,7 +210,7 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
             sameSite: 'lax',
             maxAge: 600,
           },
-          store.useWebKit
+          { iosCookieStore: store.iosCookieStore }
         ),
         CookieManager.set(
           TEST_URL,
@@ -207,7 +220,7 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
             value: 'root',
             path: '/',
           },
-          store.useWebKit
+          { iosCookieStore: store.iosCookieStore }
         ),
         CookieManager.set(
           TEST_URL,
@@ -217,7 +230,7 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
             value: 'account',
             path: '/account',
           },
-          store.useWebKit
+          { iosCookieStore: store.iosCookieStore }
         ),
       ]);
 
@@ -225,7 +238,9 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
     });
 
     await run(`${store.label}: duplicate-preserving read`, async () => {
-      const cookies = await CookieManager.getAsArray(TEST_URL, store.useWebKit);
+      const cookies = await CookieManager.getAsArray(TEST_URL, {
+        iosCookieStore: store.iosCookieStore,
+      });
       const duplicates = cookies.filter(
         (cookie) => cookie.name === DUPLICATE_COOKIE
       );
@@ -245,7 +260,9 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
     });
 
     await run(`${store.label}: structured metadata`, async () => {
-      const cookies = await CookieManager.getAsArray(TEST_URL, store.useWebKit);
+      const cookies = await CookieManager.getAsArray(TEST_URL, {
+        iosCookieStore: store.iosCookieStore,
+      });
       const cookie = cookies.find((item) => item.name === PERSISTENT_COOKIE);
 
       assert(cookie, 'Persistent cookie was not returned');
@@ -281,10 +298,12 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
           secure: true,
           expires: new Date(Date.now() - 60_000).toISOString(),
         },
-        store.useWebKit
+        { iosCookieStore: store.iosCookieStore }
       );
 
-      const cookies = await CookieManager.getAsArray(TEST_URL, store.useWebKit);
+      const cookies = await CookieManager.getAsArray(TEST_URL, {
+        iosCookieStore: store.iosCookieStore,
+      });
       assert(
         cookies.every((cookie) => cookie.name !== EXPIRED_COOKIE),
         'A cookie with a past Expires date remained in the store'
@@ -292,10 +311,9 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
     });
 
     await run(`${store.label}: request header`, async () => {
-      const header = await CookieManager.getCookieHeader(
-        TEST_URL,
-        store.useWebKit
-      );
+      const header = await CookieManager.getCookieHeader(TEST_URL, {
+        iosCookieStore: store.iosCookieStore,
+      });
 
       assert(
         header.includes(`${SESSION_COOKIE}=`),
@@ -308,6 +326,44 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
     });
   }
 
+  await run(
+    'set(): strict validation and v6 compatibility escape hatch',
+    async () => {
+      const legacyCookie: Cookie = {
+        name: LEGACY_VALIDATION_COOKIE,
+        value: nonce,
+        domain: TEST_DOMAIN,
+        path: '/',
+        secure: true,
+        expires: 'not-a-date',
+      };
+
+      try {
+        await CookieManager.set(TEST_URL, legacyCookie);
+        throw new Error('Default validation accepted an invalid expires value');
+      } catch (error) {
+        assert(
+          isCookieManagerError(error) && error.code === 'invalid_cookie',
+          `Expected invalid_cookie, got ${describeError(error)}`
+        );
+      }
+
+      const stored = await CookieManager.set(TEST_URL, legacyCookie, {
+        validate: false,
+      });
+      assert(stored, 'validate: false compatibility write returned false');
+
+      const cookies = await CookieManager.getAsArray(TEST_URL);
+      assert(
+        cookies.some(
+          (cookie) =>
+            cookie.name === LEGACY_VALIDATION_COOKIE && cookie.value === nonce
+        ),
+        'Compatibility write was not returned from the native store'
+      );
+    }
+  );
+
   await run('setFromResponse()', async () => {
     const stored = await CookieManager.setFromResponse(
       TEST_URL,
@@ -315,7 +371,7 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
     );
     assert(stored, 'setFromResponse() returned false');
 
-    const cookies = await CookieManager.getAsArray(TEST_URL, false);
+    const cookies = await CookieManager.getAsArray(TEST_URL);
     assert(
       cookies.some(
         (cookie) => cookie.name === RAW_COOKIE && cookie.value === nonce
@@ -331,7 +387,7 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
 
     assert(response.ok, `Metro endpoint returned ${response.status}: ${body}`);
 
-    const cookies = await CookieManager.get(networkRequestURL, false);
+    const cookies = await CookieManager.get(networkRequestURL);
     assert(
       cookies[NETWORK_COOKIE]?.value === nonce,
       'Cookie was not visible immediately after the response completed'
@@ -344,7 +400,7 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
         const removed = await CookieManager.clearByName(
           TEST_URL,
           DUPLICATE_COOKIE,
-          store.useWebKit
+          { iosCookieStore: store.iosCookieStore }
         );
         assert(removed, 'clearByName() returned false');
       } catch (error) {
@@ -360,7 +416,9 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
         throw error;
       }
 
-      const cookies = await CookieManager.getAsArray(TEST_URL, store.useWebKit);
+      const cookies = await CookieManager.getAsArray(TEST_URL, {
+        iosCookieStore: store.iosCookieStore,
+      });
       assert(
         cookies.every((cookie) => cookie.name !== DUPLICATE_COOKIE),
         'A same-name variant remained after cleanup'
@@ -373,7 +431,9 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
     assert(removed, 'removeSessionCookies() returned false');
 
     for (const store of stores) {
-      const cookies = await CookieManager.getAsArray(TEST_URL, store.useWebKit);
+      const cookies = await CookieManager.getAsArray(TEST_URL, {
+        iosCookieStore: store.iosCookieStore,
+      });
       assert(
         cookies.every((cookie) => cookie.name !== SESSION_COOKIE),
         `${store.label}: session cookie remained`
@@ -389,7 +449,9 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
     await CookieManager.clearAllStores();
 
     for (const store of stores) {
-      const cookies = await CookieManager.getAsArray(TEST_URL, store.useWebKit);
+      const cookies = await CookieManager.getAsArray(TEST_URL, {
+        iosCookieStore: store.iosCookieStore,
+      });
       assert(
         cookies.every((cookie) => !cookie.name.startsWith(COOKIE_PREFIX)),
         `${store.label}: smoke-test cookies remained`
@@ -397,7 +459,7 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
     }
 
     if (networkRequestURL) {
-      const cookies = await CookieManager.get(networkRequestURL, false);
+      const cookies = await CookieManager.get(networkRequestURL);
       assert(
         cookies[NETWORK_COOKIE] === undefined,
         'Network response cookie remained'
@@ -432,7 +494,7 @@ export const preparePersistenceTest = async (): Promise<DeviceSmokeReport> => {
             sameSite: 'lax',
             maxAge: 24 * 60 * 60,
           },
-          store.useWebKit
+          { iosCookieStore: store.iosCookieStore }
         ),
         CookieManager.set(
           PERSISTENCE_URL,
@@ -446,7 +508,7 @@ export const preparePersistenceTest = async (): Promise<DeviceSmokeReport> => {
             sameSite: 'lax',
             expires,
           },
-          store.useWebKit
+          { iosCookieStore: store.iosCookieStore }
         ),
         CookieManager.set(
           PERSISTENCE_URL,
@@ -457,16 +519,15 @@ export const preparePersistenceTest = async (): Promise<DeviceSmokeReport> => {
             path: '/',
             secure: true,
           },
-          store.useWebKit
+          { iosCookieStore: store.iosCookieStore }
         ),
       ]);
 
       assert(results.every(Boolean), 'At least one set() returned false');
 
-      const cookies = await CookieManager.getAsArray(
-        PERSISTENCE_URL,
-        store.useWebKit
-      );
+      const cookies = await CookieManager.getAsArray(PERSISTENCE_URL, {
+        iosCookieStore: store.iosCookieStore,
+      });
       assert(
         cookies.some(
           (cookie) =>
@@ -532,10 +593,9 @@ export const verifyPersistenceTest = async (): Promise<DeviceSmokeReport> => {
     let restoredCookies: ReadonlyArray<Cookie> = [];
 
     await recordCheck(checks, `${store.label}: restored snapshot`, async () => {
-      restoredCookies = await CookieManager.getAsArray(
-        PERSISTENCE_URL,
-        store.useWebKit
-      );
+      restoredCookies = await CookieManager.getAsArray(PERSISTENCE_URL, {
+        iosCookieStore: store.iosCookieStore,
+      });
       return describeCookies(restoredCookies);
     });
 
@@ -605,10 +665,9 @@ export const verifyPersistenceTest = async (): Promise<DeviceSmokeReport> => {
       await CookieManager.clearAllStores();
 
       for (const store of stores) {
-        const cookies = await CookieManager.getAsArray(
-          PERSISTENCE_URL,
-          store.useWebKit
-        );
+        const cookies = await CookieManager.getAsArray(PERSISTENCE_URL, {
+          iosCookieStore: store.iosCookieStore,
+        });
         assert(
           cookies.every(
             (cookie) => !cookie.name.startsWith(PERSISTENCE_PREFIX)

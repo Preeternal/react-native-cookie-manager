@@ -17,6 +17,14 @@ jest.mock('../NativeCookieManager', () => ({
     startCookieChangeObserving: jest.fn(),
     stopCookieChangeObserving: jest.fn(),
     removeSessionCookies: jest.fn(async () => true),
+    setCookie: jest.fn(async () => true),
+    getCookies: jest.fn(async () => ({})),
+    getAsArray: jest.fn(async () => []),
+    getCookieHeader: jest.fn(async () => ''),
+    getAll: jest.fn(async () => ({})),
+    getAllAsArray: jest.fn(async () => []),
+    clearAll: jest.fn(async () => true),
+    clearByName: jest.fn(async () => true),
   },
 }));
 
@@ -26,6 +34,14 @@ import CookieManager, { isCookieManagerError } from '../index';
 const mockRemoveSessionCookies = jest.mocked(
   mockNativeModule.removeSessionCookies
 );
+const mockSetCookie = jest.mocked(mockNativeModule.setCookie);
+const mockGetCookies = jest.mocked(mockNativeModule.getCookies);
+const mockGetAsArray = jest.mocked(mockNativeModule.getAsArray);
+const mockGetCookieHeader = jest.mocked(mockNativeModule.getCookieHeader);
+const mockGetAll = jest.mocked(mockNativeModule.getAll);
+const mockGetAllAsArray = jest.mocked(mockNativeModule.getAllAsArray);
+const mockClearAll = jest.mocked(mockNativeModule.clearAll);
+const mockClearByName = jest.mocked(mockNativeModule.clearByName);
 const mockOnCookieChange = jest.mocked(mockNativeModule.onCookieChange);
 const mockStartCookieChangeObserving = jest.mocked(
   mockNativeModule.startCookieChangeObserving
@@ -135,5 +151,166 @@ describe('removeSessionCookies', () => {
     ).rejects.toThrow(
       'iosCookieStore must be "foundation", "webKit", or "both"'
     );
+  });
+});
+
+describe('set', () => {
+  const cookie = { name: 'session', value: 'value' };
+
+  beforeEach(() => {
+    mockSetCookie.mockClear();
+  });
+
+  it('uses Foundation and validation by default', async () => {
+    await expect(
+      CookieManager.set('https://example.com', cookie)
+    ).resolves.toBe(true);
+
+    expect(mockSetCookie).toHaveBeenCalledWith(
+      'https://example.com',
+      cookie,
+      false,
+      true
+    );
+  });
+
+  it('keeps the legacy boolean selector with validation enabled', async () => {
+    await CookieManager.set('https://example.com', cookie, true);
+
+    expect(mockSetCookie).toHaveBeenCalledWith(
+      'https://example.com',
+      cookie,
+      true,
+      true
+    );
+  });
+
+  it('normalizes store and the temporary validation escape hatch', async () => {
+    await CookieManager.set('https://example.com', cookie, {
+      iosCookieStore: 'webKit',
+      validate: false,
+    });
+
+    expect(mockSetCookie).toHaveBeenCalledWith(
+      'https://example.com',
+      cookie,
+      true,
+      false
+    );
+  });
+
+  it('rejects unknown fields before reaching native code by default', async () => {
+    const input = { ...cookie, partitioned: true };
+
+    await expect(
+      CookieManager.set('https://example.com', input)
+    ).rejects.toMatchObject({ code: 'invalid_cookie' });
+    expect(mockSetCookie).not.toHaveBeenCalled();
+  });
+
+  it('lets the v6 compatibility path ignore unknown fields', async () => {
+    const input = { ...cookie, legacyAttribute: 'ignored' };
+
+    await CookieManager.set('https://example.com', input, {
+      validate: false,
+    });
+
+    expect(mockSetCookie).toHaveBeenCalledWith(
+      'https://example.com',
+      input,
+      false,
+      false
+    );
+  });
+
+  it('rejects invalid runtime options with a stable code', async () => {
+    await expect(
+      CookieManager.set('https://example.com', cookie, {
+        iosCookieStore: 'invalid',
+      } as never)
+    ).rejects.toMatchObject({ code: 'invalid_cookie' });
+    expect(mockSetCookie).not.toHaveBeenCalled();
+  });
+
+  it('does not accept the removeSessionCookies-only both selector', async () => {
+    await expect(
+      CookieManager.set('https://example.com', cookie, {
+        iosCookieStore: 'both',
+      } as never)
+    ).rejects.toMatchObject({ code: 'invalid_cookie' });
+    expect(mockSetCookie).not.toHaveBeenCalled();
+  });
+});
+
+describe('iOS cookie store options', () => {
+  beforeEach(() => {
+    mockGetCookies.mockClear();
+    mockGetAsArray.mockClear();
+    mockGetCookieHeader.mockClear();
+    mockGetAll.mockClear();
+    mockGetAllAsArray.mockClear();
+    mockClearAll.mockClear();
+    mockClearByName.mockClear();
+  });
+
+  it('uses Foundation when options are omitted', async () => {
+    await CookieManager.get('https://example.com');
+    await CookieManager.getAll();
+    await CookieManager.clearAll();
+
+    expect(mockGetCookies).toHaveBeenCalledWith('https://example.com', false);
+    expect(mockGetAll).toHaveBeenCalledWith(false);
+    expect(mockClearAll).toHaveBeenCalledWith(false);
+  });
+
+  it('normalizes the WebKit option for every selector method', async () => {
+    const options = { iosCookieStore: 'webKit' } as const;
+
+    await CookieManager.get('https://example.com', options);
+    await CookieManager.getAsArray('https://example.com', options);
+    await CookieManager.getCookieHeader('https://example.com', options);
+    await CookieManager.getAll(options);
+    await CookieManager.getAllAsArray(options);
+    await CookieManager.clearAll(options);
+    await CookieManager.clearByName('https://example.com', 'session', options);
+
+    expect(mockGetCookies).toHaveBeenCalledWith('https://example.com', true);
+    expect(mockGetAsArray).toHaveBeenCalledWith('https://example.com', true);
+    expect(mockGetCookieHeader).toHaveBeenCalledWith(
+      'https://example.com',
+      true
+    );
+    expect(mockGetAll).toHaveBeenCalledWith(true);
+    expect(mockGetAllAsArray).toHaveBeenCalledWith(true);
+    expect(mockClearAll).toHaveBeenCalledWith(true);
+    expect(mockClearByName).toHaveBeenCalledWith(
+      'https://example.com',
+      'session',
+      true
+    );
+  });
+
+  it('preserves legacy boolean selectors throughout v7', async () => {
+    await CookieManager.get('https://example.com', true);
+    await CookieManager.getAll(true);
+    await CookieManager.clearByName('https://example.com', 'session', true);
+
+    expect(mockGetCookies).toHaveBeenCalledWith('https://example.com', true);
+    expect(mockGetAll).toHaveBeenCalledWith(true);
+    expect(mockClearByName).toHaveBeenCalledWith(
+      'https://example.com',
+      'session',
+      true
+    );
+  });
+
+  it('rejects invalid selectors before reaching native code', async () => {
+    await expect(
+      CookieManager.get('https://example.com', {
+        iosCookieStore: 'both',
+      } as never)
+    ).rejects.toMatchObject({ code: 'invalid_cookie' });
+
+    expect(mockGetCookies).not.toHaveBeenCalled();
   });
 });

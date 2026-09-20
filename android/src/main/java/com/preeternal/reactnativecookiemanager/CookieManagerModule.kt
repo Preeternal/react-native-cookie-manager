@@ -44,11 +44,12 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   override fun setCookie(
     url: String,
     cookie: ReadableMap,
-    useWebKit: Boolean?,
+    useWebKit: Boolean,
+    validate: Boolean,
     promise: Promise
   ) {
     val cookieString = try {
-      serializeCookieForSet(makeCookieSetData(url, cookie))
+      serializeCookieForSet(makeCookieSetData(url, cookie, validate))
     } catch (e: Exception) {
       promise.reject(cookieManagerErrorCode(e, CookieManagerErrorCode.INVALID_COOKIE), e)
       return
@@ -58,8 +59,21 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   }
 
   override fun setFromResponse(url: String, cookie: String, promise: Promise) {
-    if (cookie.isEmpty()) {
-      promise.reject(CookieManagerErrorCode.INVALID_COOKIE.value, INVALID_COOKIE_VALUES)
+    val parsedUrl = try {
+      URL(url)
+    } catch (e: Exception) {
+      promise.reject(CookieManagerErrorCode.INVALID_URL.value, INVALID_URL_MISSING_HTTP, e)
+      return
+    }
+    if (parsedUrl.host.isEmpty()) {
+      promise.reject(CookieManagerErrorCode.INVALID_URL.value, INVALID_URL_MISSING_HTTP)
+      return
+    }
+
+    try {
+      validateRawSetCookieHeader(cookie)
+    } catch (e: Exception) {
+      promise.reject(CookieManagerErrorCode.INVALID_COOKIE.value, e)
       return
     }
 
@@ -553,7 +567,11 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   }
 
   @Throws(Exception::class)
-  private fun makeCookieSetData(url: String, cookie: ReadableMap): CookieSetData {
+  private fun makeCookieSetData(
+    url: String,
+    cookie: ReadableMap,
+    validate: Boolean
+  ): CookieSetData {
     val parsedUrl = try {
       URL(url)
     } catch (e: Exception) {
@@ -572,10 +590,53 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
       )
     }
 
-    val validatedCookie = HttpCookie(cookie.getString("name"), cookie.getString("value"))
+    val name = cookie.getString("name")
+      ?: throw IllegalArgumentException("Missing cookie name")
+    val value = cookie.getString("value")
+      ?: throw IllegalArgumentException("Missing cookie value")
+    val rawDomain = if (cookie.hasKey("domain") && !cookie.isNull("domain")) {
+      cookie.getString("domain")
+    } else {
+      null
+    }
+    val rawPath = if (cookie.hasKey("path") && !cookie.isNull("path")) {
+      cookie.getString("path")
+    } else {
+      null
+    }
+    val version = if (cookie.hasKey("version") && !cookie.isNull("version")) {
+      cookie.getString("version")
+    } else {
+      null
+    }
+    val expires = if (cookie.hasKey("expires") && !cookie.isNull("expires")) {
+      cookie.getString("expires")
+    } else {
+      null
+    }
+    val rawSameSite = if (cookie.hasKey("sameSite") && !cookie.isNull("sameSite")) {
+      cookie.getString("sameSite")
+    } else {
+      null
+    }
+
+    validateStructuredCookieStrings(
+      StructuredCookieStrings(
+        name = name,
+        value = value,
+        domain = rawDomain,
+        path = rawPath,
+        version = version,
+        expires = expires,
+        sameSite = rawSameSite
+      ),
+      validate
+    )
+
+    val validatedCookie = HttpCookie(name, value)
     var domain: String?
-    if (cookie.hasKey("domain") && !isEmpty(cookie.getString("domain"))) {
-      domain = cookie.getString("domain")
+    if (!isEmpty(rawDomain)) {
+      domain = rawDomain
       if (domain != null && domain.startsWith(".")) {
         domain = domain.substring(1)
       }
@@ -590,12 +651,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
       domain = topLevelDomain
     }
 
-    val path =
-      if (cookie.hasKey("path") && !cookie.isNull("path")) {
-        cookie.getString("path")?.takeUnless { it.isEmpty() }
-      } else {
-        null
-      }
+    val path = rawPath?.takeUnless { it.isEmpty() }
     val secure = cookie.hasKey("secure") && cookie.getBoolean("secure")
     val httpOnly =
       HTTP_ONLY_SUPPORTED && cookie.hasKey("httpOnly") && cookie.getBoolean("httpOnly")
@@ -608,16 +664,15 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     val expiresAtMillis =
       if (
         maxAgeSeconds == null &&
-        cookie.hasKey("expires") &&
-        !isEmpty(cookie.getString("expires"))
+        !isEmpty(expires)
       ) {
-        parseCookieExpires(cookie.getString("expires"))
+        parseCookieExpires(expires)
       } else {
         null
       }
     val sameSite =
-      if (cookie.hasKey("sameSite") && !cookie.isNull("sameSite")) {
-        parseCookieSameSite(cookie.getString("sameSite") ?: "")
+      if (rawSameSite != null) {
+        parseCookieSameSite(rawSameSite)
       } else {
         null
       }
@@ -698,7 +753,6 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   companion object {
     private const val INVALID_URL_MISSING_HTTP =
       "Invalid URL: It may be missing a protocol (ex. http:// or https://)."
-    private const val INVALID_COOKIE_VALUES = "Unable to add cookie - invalid values"
     private const val GET_ALL_NOT_SUPPORTED = "Get all cookies not supported for Android (iOS only)"
     private const val CLEAR_BY_NAME_NOT_SUPPORTED =
       "clearByName requires GET_COOKIE_INFO support from the device's Android System WebView provider"

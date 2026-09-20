@@ -31,7 +31,12 @@ export interface Spec extends TurboModule {
   readonly onCookieChange: CodegenTypes.EventEmitter<CookieChangeEvent>;
   startCookieChangeObserving(): void;
   stopCookieChangeObserving(): void;
-  setCookie(url: string, cookie: Cookie, useWebKit?: boolean): Promise<boolean>;
+  setCookie(
+    url: string,
+    cookie: Cookie,
+    useWebKit: boolean,
+    validate: boolean
+  ): Promise<boolean>;
   setFromResponse(url: string, cookie: string): Promise<boolean>;
   getCookies(url: string, useWebKit?: boolean): Promise<Cookies>;
   getAsArray(url: string, useWebKit?: boolean): Promise<ReadonlyArray<Cookie>>;

@@ -8,6 +8,7 @@ let isSwiftTestPackage = ProcessInfo.processInfo.environment["COOKIE_MANAGER_SWI
 let helperSources = [
   "CookieChangeObserver.swift",
   "CookieManagerError.swift",
+  "CookieValidationLogic.swift",
   "CookieAttributeLogic.swift",
   "CookieCollectionLogic.swift",
   "CookieDomainLogic.swift",
@@ -35,6 +36,14 @@ if isSwiftTestPackage {
           $0 != "CookieManagerError.swift"
         },
         sources: ["CookieManagerError.swift"]
+      ),
+      .target(
+        name: "CookieValidationLogic",
+        path: "ios",
+        exclude: ["CookieManager.swift", "ReactNative"] + helperSources.filter {
+          $0 != "CookieValidationLogic.swift"
+        },
+        sources: ["CookieValidationLogic.swift"]
       ),
       .target(
         name: "CookieChangeObserver",
@@ -104,6 +113,11 @@ if isSwiftTestPackage {
         name: "CookieManagerErrorTests",
         dependencies: ["CookieManagerError"],
         path: "swift-tests/CookieManagerErrorTests"
+      ),
+      .testTarget(
+        name: "CookieValidationLogicTests",
+        dependencies: ["CookieValidationLogic"],
+        path: "swift-tests/CookieValidationLogicTests"
       ),
       .testTarget(
         name: "CookieChangeObserverTests",

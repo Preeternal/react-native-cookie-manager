@@ -12,6 +12,7 @@
 - (void)set:(NSString *)url
          cookie:(NSDictionary *)cookie
       useWebKit:(BOOL)useWebKit
+        validate:(BOOL)validate
         resolve:(RCTPromiseResolveBlock)resolve
          reject:(RCTPromiseRejectBlock)reject;
 - (void)setFromResponse:(NSString *)url
@@ -111,13 +112,15 @@
 
 - (void)handleSetWithUrlString:(NSString *)url
                         props:(NSDictionary *)props
-                     useWebKit:(NSNumber *)useWebKit
+                     useWebKit:(BOOL)useWebKit
+                       validate:(BOOL)validate
                        resolve:(RCTPromiseResolveBlock)resolve
                         reject:(RCTPromiseRejectBlock)reject
 {
   [_impl set:url
        cookie:props
-     useWebKit:[useWebKit boolValue]
+     useWebKit:useWebKit
+       validate:validate
        resolve:resolve
         reject:reject];
 }
@@ -251,12 +254,18 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
 
 - (void)setCookie:(NSString *)url
            cookie:(JS::NativeCookieManager::Cookie &)cookie
-        useWebKit:(NSNumber *)useWebKit
+        useWebKit:(BOOL)useWebKit
+          validate:(BOOL)validate
           resolve:(RCTPromiseResolveBlock)resolve
            reject:(RCTPromiseRejectBlock)reject
 {
   NSDictionary *props = CookieManagerPropsFromSpecCookie(cookie);
-  [self handleSetWithUrlString:url props:props useWebKit:useWebKit resolve:resolve reject:reject];
+  [self handleSetWithUrlString:url
+                         props:props
+                      useWebKit:useWebKit
+                        validate:validate
+                         resolve:resolve
+                          reject:reject];
 }
 
 - (void)setFromResponse:(NSString *)url

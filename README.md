@@ -129,6 +129,7 @@ The upstream-compatible `getFromResponse(url)` remains available but is deprecat
 ### Manage the cookie store
 
 ```ts
+// Foundation on iOS; options are optional
 await CookieManager.set('https://example.com', {
   name: 'session',
   value: 'abc123',
@@ -139,6 +140,13 @@ await CookieManager.set('https://example.com', {
   sameSite: 'lax',
   maxAge: 60 * 60 * 24 * 7,
 });
+
+// iOS: write to the default persistent WebKit store
+await CookieManager.set(
+  'https://example.com',
+  { name: 'web_session', value: 'abc123', path: '/', secure: true },
+  { iosCookieStore: 'webKit' }
+);
 
 const cookies = await CookieManager.get('https://example.com');
 
@@ -154,19 +162,64 @@ await CookieManager.clearByName('https://example.com', 'session');
 // Clear Foundation on iOS; clear the shared store on Android
 await CookieManager.clearAll();
 
-// Clear Foundation and the default WebKit store on iOS
+// Clear Foundation and the app's default persistent WebKit store on iOS
 await CookieManager.clearAllStores();
 
 // Remove session cookies from both iOS stores; shared Android store
 await CookieManager.removeSessionCookies();
+await CookieManager.removeSessionCookies({ iosCookieStore: 'both' }); // explicit equivalent
 
 // iOS: limit session cleanup to one store when needed
 await CookieManager.removeSessionCookies({ iosCookieStore: 'webKit' });
 ```
 
+### Structured validation and v6 migration
+
+`set()` validates the complete structured cookie before touching a native store. Validation is enabled by default on both platforms. It rejects malformed names, paths and expiry dates as well as control characters or field delimiters that could change the resulting cookie structure. Printable values do not need percent-encoding or base64url merely because they contain spaces, Unicode, quotes, commas, backslashes, or `=`.
+
+During the v7 migration, `{ validate: false }` temporarily restores native-store handling for compatibility-sensitive cases. For example, v6 silently treated an unparseable `expires` value as a session cookie:
+
+```ts
+import CookieManager, {
+  isCookieManagerError,
+  type Cookie,
+} from '@preeternal/react-native-cookie-manager';
+
+const cookieFromBackend: Cookie = {
+  name: 'session',
+  value: sessionToken,
+  path: '/',
+  // This backend format is not the ISO 8601 format required by set().
+  expires: '2032-06-09 10:18:14 UTC',
+};
+
+try {
+  await CookieManager.set('https://example.com', cookieFromBackend);
+} catch (error) {
+  if (isCookieManagerError(error) && error.code === 'invalid_cookie') {
+    console.warn('Structured cookie rejected', {
+      code: error.code,
+      cookieName: cookieFromBackend.name,
+      path: cookieFromBackend.path,
+      hasExpires: cookieFromBackend.expires !== undefined,
+      backendOperation: 'create-session',
+    });
+  }
+}
+
+// Temporary diagnostic/migration switch after confirming the cause.
+await CookieManager.set('https://example.com', cookieFromBackend, {
+  validate: false,
+});
+```
+
+`validate` is deprecated and will be removed in the next major version, when validation becomes unconditional. Do not automatically retry every `invalid_cookie` rejection with validation disabled: log the stable error code and safe source context, fix the producer/backend, then remove the escape hatch. Never log the cookie value, a raw `Set-Cookie` header, an authentication token, or a session identifier. Error messages are useful diagnostics but are not stable enough for branching.
+
+Structural safety checks remain active when `validate: false`. In particular, CR, LF, NUL, other ASCII controls, and `;` in a structured value still reject. Android WebView accepts only a raw `Set-Cookie` string and treats the first `;` as the end of the value even inside quotes, so a literal semicolon cannot be preserved without application/backend encoding. The library never encodes cookie values implicitly.
+
 ### Observe iOS cookie-store changes
 
-Use the change listener to invalidate application state after Foundation or the default WebKit store changes—for example, when a login completes inside a WebView:
+Use the change listener to invalidate application state after Foundation or the app's default persistent WebKit store changes—for example, when a login completes inside a WebView:
 
 ```ts
 const subscription = CookieManager.addCookieChangeListener(({ store }) => {
@@ -194,30 +247,32 @@ await CookieManager.setFromResponse(
 );
 ```
 
+Semicolons in this raw API delimit real attributes; they do not escape a literal semicolon inside a value. Empty headers and headers containing CR, LF, or NUL reject before reaching the native store.
+
 ## API
 
 The public API remains compatible with `@react-native-cookies/cookies`.
 
 | Method | Platforms | Description |
 | --- | --- | --- |
-| **`addCookieChangeListener(listener)`**: `EventSubscription` | iOS | Subscribes to Foundation and default WebKit invalidation events. The native observers are shared across JS subscribers and stop after the last subscription is removed. Android throws `not_supported`. |
-| **`set(url, cookie, useWebKit?)`**: `Promise<boolean>` | iOS, Android | Stores a cookie, including `sameSite` and relative `maxAge`. On iOS, uses Foundation by default or default WebKit when `true`. |
-| **`get(url, useWebKit?)`**: `Promise<Cookies>` | iOS, Android | Reads matching cookies without making a request. On iOS, uses Foundation by default or default WebKit when `true`. |
-| **`getAsArray(url, useWebKit?)`**: `Promise<ReadonlyArray<Cookie>>` | iOS, Android | Reads matching cookies without collapsing cookies that share a name. Store selection matches `get()`. |
-| **`getCookieHeader(url, useWebKit?)`**: `Promise<string>` | iOS, Android | Returns the selected store's matching cookies as a `Cookie` request-header value, or an empty string. |
-| **`clearAll(useWebKit?)`**: `Promise<boolean>` | iOS, Android | Clears the shared Android store. On iOS, clears Foundation by default or default WebKit when `true`. |
-| **`clearAllStores()`**: `Promise<boolean>` | iOS, Android | Clears the shared Android store, or Foundation and default WebKit on iOS; resolves `true` after native completion. |
-| **`getAll(useWebKit?)`**: `Promise<Cookies>` | iOS | Reads Foundation by default or default WebKit when `true`. |
-| **`getAllAsArray(useWebKit?)`**: `Promise<ReadonlyArray<Cookie>>` | iOS | Reads the selected iOS store without collapsing cookies that share a name. |
-| **`clearByName(url, name, useWebKit?)`**: `Promise<boolean>` | iOS, Android | Clears same-name cookies from the selected iOS store, or variants applicable to `url` in the shared Android store. |
+| **`addCookieChangeListener(listener)`**: `EventSubscription` | iOS | Subscribes to invalidations from Foundation and the app's default persistent WebKit store. The native observers are shared across JS subscribers and stop after the last subscription is removed. Android throws `not_supported`. |
+| **`set(url, cookie, options?)`**: `Promise<boolean>` | iOS, Android | Validates and stores a cookie, including `sameSite` and relative `maxAge`. On iOS, omitted options select Foundation; `{ iosCookieStore: 'webKit' }` selects the app's default persistent WebKit store. `options.validate` is a temporary deprecated v7 migration escape hatch. |
+| **`get(url, options?)`**: `Promise<Cookies>` | iOS, Android | Reads matching cookies without making a request. On iOS, omitted options select Foundation; `{ iosCookieStore: 'webKit' }` selects the app's default persistent WebKit store. |
+| **`getAsArray(url, options?)`**: `Promise<ReadonlyArray<Cookie>>` | iOS, Android | Reads matching cookies without collapsing cookies that share a name. Store selection matches `get()`. |
+| **`getCookieHeader(url, options?)`**: `Promise<string>` | iOS, Android | Returns the selected store's matching cookies as a `Cookie` request-header value, or an empty string. |
+| **`clearAll(options?)`**: `Promise<boolean>` | iOS, Android | Clears the shared Android store or the selected iOS store. |
+| **`clearAllStores()`**: `Promise<boolean>` | iOS, Android | Clears the shared Android store, or Foundation and the app's default persistent WebKit store on iOS; resolves `true` after native completion. |
+| **`getAll(options?)`**: `Promise<Cookies>` | iOS | Reads all cookies from the selected iOS store. |
+| **`getAllAsArray(options?)`**: `Promise<ReadonlyArray<Cookie>>` | iOS | Reads the selected iOS store without collapsing cookies that share a name. |
+| **`clearByName(url, name, options?)`**: `Promise<boolean>` | iOS, Android | Clears same-name cookies from the selected iOS store, or variants applicable to `url` in the shared Android store. |
 | **`flush()`**: `Promise<void>` | iOS, Android | Explicit Android persistence barrier for external shared-store changes. Android mutations already flush automatically; this method is a no-op on iOS. |
 | **`removeSessionCookies(options?)`**: `Promise<boolean>` | iOS, Android | Removes cookies without an expiry date and reports whether any were removed; includes both iOS stores by default. |
 | **`setFromResponse(url, cookieHeader)`**: `Promise<boolean>` | iOS, Android | Imports one raw `Set-Cookie` header value; uses Foundation on iOS. |
 | **`getFromResponse(url)`**: `Promise<Cookies>` | iOS, Android | Deprecated; performs a GET and updates Foundation on iOS. |
 
-`useWebKit` is available on `set()`, `get()`, `getAsArray()`, `getCookieHeader()`, `clearAll()`, `getAll()`, `getAllAsArray()`, and `clearByName()`. On iOS, omitted/`false` selects Foundation and `true` selects only the default WebKit store; it never combines them. On Android the flag is ignored because WebView and native share a single store.
+All single-store methods use the same optional `{ iosCookieStore }` selector. Omitting options or omitting the field selects Foundation. The legacy positional `useWebKit` overloads remain available throughout v7 but are deprecated; replace `true` with `{ iosCookieStore: 'webKit' }` and `false` with `{ iosCookieStore: 'foundation' }` or omitted options. On iOS each call selects one store and never combines them. Android ignores `iosCookieStore` because WebView and native share a single store.
 
-`removeSessionCookies()` clears both iOS stores by default. Pass `{ iosCookieStore: 'foundation' }` or `{ iosCookieStore: 'webKit' }` to limit cleanup to one store. Android ignores this iOS-only option.
+`removeSessionCookies()` clears both iOS stores by default. Pass `{ iosCookieStore: 'both' }` to state that scope explicitly, or select `'foundation'` / `'webKit'` to limit cleanup to one store. Android ignores this iOS-only option.
 
 On Android, `clearByName()` relies on `GET_COOKIE_INFO` support in the device's Android System WebView provider. It rejects with `not_supported` on devices with an older provider. The method clears every same-name domain/path variant visible to the supplied URL. A cookie restricted to `/account` is not visible from a `/` URL, so use a matching path (and multiple calls for unrelated paths). On iOS, the method clears same-domain variants across all paths in the selected store.
 
@@ -272,6 +327,22 @@ type Cookie = {
   sameSite?: 'lax' | 'strict' | 'none';
   maxAge?: number; // set() only: relative lifetime in whole seconds
 };
+
+type IOSCookieStore = 'foundation' | 'webKit';
+
+type IOSCookieStoreOptions = {
+  iosCookieStore?: IOSCookieStore;
+};
+
+type SetCookieOptions = IOSCookieStoreOptions & {
+  /** @deprecated Temporary v7 migration escape hatch. */
+  validate?: boolean;
+};
+
+type RemoveSessionCookiesOptions = {
+  // Defaults to 'both'.
+  iosCookieStore?: IOSCookieStore | 'both';
+};
 ```
 
 `maxAge` takes precedence over `expires`; `0` or a negative value expires the cookie immediately. Native stores expose the resulting absolute `expires` date when reading, not the original `maxAge`. `sameSite: 'none'` requires `secure: true`. The iOS `HTTPCookie` model represents this unrestricted policy as no explicit SameSite value, so reads may omit `sameSite` after setting `'none'`.
@@ -285,9 +356,9 @@ On Android, metadata is populated when the device's Android System WebView provi
 ### WebKit on iOS
 
 - iOS has two stores: `NSHTTPCookieStorage` (used by URLSession) and `WKHTTPCookieStore` (used by WKWebView / `react-native-webview`).
-- Pass `useWebKit: true` to operate on the default WKWebView cookie store. For network-only flows, omit it to use `NSHTTPCookieStorage`.
-- To apply `set()` or `clearByName()` to both stores, call the method once with `useWebKit: false` and once with `true`. Reading both stores with `get()`, `getAsArray()`, `getCookieHeader()`, `getAll()`, or `getAllAsArray()` likewise requires two calls; results are returned separately and are not merged.
-- `getCookieHeader(url, true)` filters default WebKit cookies by domain, path, `Secure`, and expiry. A URL alone cannot reproduce WebKit's `SameSite`, partition, or third-party request context, so do not treat it as the exact header of an embedded WebView request.
+- Pass `{ iosCookieStore: 'webKit' }` to `set()` to use the default WKWebView cookie store. For network-only flows, omit options or select `'foundation'` to use `NSHTTPCookieStorage`.
+- To apply a single-store method to both stores, call it once with `{ iosCookieStore: 'foundation' }` (or omitted options) and once with `{ iosCookieStore: 'webKit' }`. Results are returned separately and are not merged.
+- `getCookieHeader(url, { iosCookieStore: 'webKit' })` filters cookies from the app's default persistent WebKit store by domain, path, `Secure`, and expiry. A URL alone cannot reproduce WebKit's `SameSite`, partition, or third-party request context, so do not treat it as the exact header of an embedded WebView request.
 - Use `clearAllStores()` when logout must clear both app-accessible stores. The library cannot access a non-persistent or custom store owned by a specific WebView.
 - On Android the flag is ignored; WebView and native use the same store.
 
@@ -300,13 +371,13 @@ On Android, metadata is populated when the device's Android System WebView provi
 - On iOS, Foundation persistent cookies survive without a WebView. There is no public iOS flush API, so `flush()` is a no-op.
 - On Android, the library automatically flushes the shared WebView cookie store after its mutations. Current WebView implementations may also restore session cookies—cookies without an expiry—after a process restart.
 
-A persistent cookie written with `useWebKit: true` survives process termination only if a normal, non-incognito WKWebView using the default data store was mounted before the process ended. A normally mounted `react-native-webview` satisfies this requirement; installing the package without mounting a WebView does not.
+A persistent cookie written with `{ iosCookieStore: 'webKit' }` survives process termination only if a normal, non-incognito WKWebView using the default data store was mounted before the process ended. A normally mounted `react-native-webview` satisfies this requirement; installing the package without mounting a WebView does not.
 
-After a cold start, mount the WebView before reading cookies from the previous app session with `get()`, `getAsArray()`, `getCookieHeader()`, `getAll()`, or `getAllAsArray()` using the WebKit store. Do the same before `clearByName(..., true)` when deleting a persistent cookie from the previous session, because this method first reads the store to find matching cookies.
+After a cold start, mount the WebView before reading cookies from the previous app session with `get()`, `getAsArray()`, `getCookieHeader()`, `getAll()`, or `getAllAsArray()` using `{ iosCookieStore: 'webKit' }`. Do the same before `clearByName(url, name, { iosCookieStore: 'webKit' })` when deleting a persistent cookie from the previous session, because this method first reads the store to find matching cookies.
 
-Full cleanup with `clearAll(true)` or `clearAllStores()` can run before a WebView is mounted because it clears WebKit website data directly. `removeSessionCookies()` can also run before mounting; iOS session cookies are process-scoped and are not expected to survive a restart.
+Full cleanup with `clearAll({ iosCookieStore: 'webKit' })` or `clearAllStores()` can run before a WebView is mounted because it clears WebKit website data directly. `removeSessionCookies()` can also run before mounting; iOS session cookies are process-scoped and are not expected to survive a restart.
 
-If the app never creates a WebView, use the Foundation store instead: omit `useWebKit` or pass `false`.
+If the app never creates a WebView, use the Foundation store instead by omitting options or selecting `{ iosCookieStore: 'foundation' }`.
 
 On Android, mutation methods automatically flush before their Promises resolve. Calling `flush()` immediately after awaiting `set()`, `setFromResponse()`, `getFromResponse()`, `clearByName()`, `clearAll()`, `clearAllStores()`, or `removeSessionCookies()` is redundant. Use it only as an explicit persistence barrier after the shared Android store was changed outside this library.
 

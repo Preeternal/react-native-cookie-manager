@@ -126,26 +126,30 @@ export default function App() {
     const errors: Record<string, string> = {};
 
     try {
-      snapshot.sharedForUrl = await CookieManager.get(urlToInspect, false);
+      snapshot.sharedForUrl = await CookieManager.get(urlToInspect);
     } catch (error) {
       errors.sharedForUrl = describeError(error);
     }
 
     if (Platform.OS === 'ios') {
       try {
-        snapshot.webKitForUrl = await CookieManager.get(urlToInspect, true);
+        snapshot.webKitForUrl = await CookieManager.get(urlToInspect, {
+          iosCookieStore: 'webKit',
+        });
       } catch (error) {
         errors.webKitForUrl = describeError(error);
       }
 
       try {
-        snapshot.allShared = await CookieManager.getAll(false);
+        snapshot.allShared = await CookieManager.getAll();
       } catch (error) {
         errors.allShared = describeError(error);
       }
 
       try {
-        snapshot.allWebKit = await CookieManager.getAll(true);
+        snapshot.allWebKit = await CookieManager.getAll({
+          iosCookieStore: 'webKit',
+        });
       } catch (error) {
         errors.allWebKit = describeError(error);
       }
@@ -174,8 +178,10 @@ export default function App() {
     setStatus(`Adding ${cookieName} for ${normalizedDomain}`);
 
     const results = await Promise.allSettled([
-      CookieManager.set(targetUrl, cookie, false),
-      CookieManager.set(targetUrl, cookie, true),
+      CookieManager.set(targetUrl, cookie, {
+        iosCookieStore: 'foundation',
+      }),
+      CookieManager.set(targetUrl, cookie, { iosCookieStore: 'webKit' }),
     ]);
 
     const rejected = results.filter((result) => result.status === 'rejected');
@@ -296,7 +302,7 @@ export default function App() {
     const subscription = CookieManager.addCookieChangeListener((event) => {
       setCookieChangeEventCount((count) => count + 1);
       setRecentCookieChangeEvents((events) => [event, ...events].slice(0, 8));
-      CookieManager.get(inspectUrl, event.store === 'webKit')
+      CookieManager.get(inspectUrl, { iosCookieStore: event.store })
         .then((cookies) => {
           setLastInvalidationRead({
             store: event.store,

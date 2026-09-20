@@ -31,11 +31,12 @@ public class CookieManagerImpl: NSObject {
     cookieChangeObserver.stop()
   }
 
-  @objc(set:cookie:useWebKit:resolve:reject:)
+  @objc(set:cookie:useWebKit:validate:resolve:reject:)
   public func set(
     url: NSString,
     cookie props: NSDictionary,
     useWebKit: Bool,
+    validate: Bool,
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
@@ -45,7 +46,7 @@ public class CookieManagerImpl: NSObject {
     }
     let cookie: HTTPCookie
     do {
-      cookie = try makeHTTPCookie(url: parsedUrl, props: props)
+      cookie = try makeHTTPCookie(url: parsedUrl, props: props, validate: validate)
     } catch let error as CookieManagerInputError {
       reject(error.code.rawValue, error.localizedDescription, error)
       return
@@ -72,8 +73,17 @@ public class CookieManagerImpl: NSObject {
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
-    guard let parsedUrl = URL(string: url as String) else {
+    guard
+      let parsedUrl = URL(string: url as String),
+      parsedUrl.host?.isEmpty == false
+    else {
       reject(CookieManagerErrorCode.invalidURL.rawValue, Self.invalidURLMissingHTTP, nil)
+      return
+    }
+    do {
+      try CookieValidationLogic.validateRawSetCookieHeader(cookie)
+    } catch {
+      reject(CookieManagerErrorCode.invalidCookie.rawValue, error.localizedDescription, error)
       return
     }
     let cookies = HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": cookie], for: parsedUrl)
@@ -432,7 +442,11 @@ public class CookieManagerImpl: NSObject {
     CookieCollectionLogic.asArray(cookies, transform: createCookieData)
   }
 
-  private func makeHTTPCookie(url: URL, props: NSDictionary) throws -> HTTPCookie {
+  private func makeHTTPCookie(
+    url: URL,
+    props: NSDictionary,
+    validate: Bool
+  ) throws -> HTTPCookie {
     guard let topLevelDomain = url.host, !topLevelDomain.isEmpty else {
       throw CookieManagerInputError(
         code: .invalidURL,
@@ -453,8 +467,30 @@ public class CookieManagerImpl: NSObject {
     let path = (props["path"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "/"
     var domain = CookieDomainLogic.normalizedInputDomain(props["domain"] as? String)
     let version = props["version"] as? String
+    let expires = props["expires"] as? String
+    let sameSite = props["sameSite"] as? String
     let secure = props["secure"] as? Bool ?? false
     let httpOnly = props["httpOnly"] as? Bool ?? false
+
+    do {
+      try CookieValidationLogic.validateStructuredStrings(
+        name: name,
+        value: value,
+        domain: domain,
+        path: props["path"] as? String,
+        version: version,
+        expires: expires,
+        sameSite: sameSite,
+        validate: validate,
+        parseDate: parseDate
+      )
+    } catch {
+      throw CookieManagerInputError(
+        code: .invalidCookie,
+        message: error.localizedDescription,
+        underlyingError: error
+      )
+    }
 
     if let rawDomain = domain {
       if !CookieDomainLogic.isMatchingDomain(originDomain: topLevelDomain, cookieDomain: rawDomain) {
