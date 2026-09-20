@@ -2,6 +2,30 @@
 
 ---
 
+## v7.0.0 (unreleased): New Architecture only
+
+This major release updates the project to the latest `create-react-native-library` scaffold and makes the New Architecture the only supported React Native runtime. The public JavaScript CookieManager API and native cookie behavior remain unchanged.
+
+### Breaking changes
+
+- Removed the legacy iOS bridge implementation and its conditional old-architecture exports.
+- React Native projects that still require the legacy bridge must stay on `v6.x`.
+
+### Compatibility
+
+- Updated the development and example-app baseline to React Native `0.86.2`.
+- Updated the library Android toolchain to Java 17 source and target compatibility.
+- Kept the package as a codegen-backed TurboModule on both iOS and Android.
+
+### Tooling
+
+- Updated the `create-react-native-library` scaffold metadata from `0.62.0` to `0.63.1`.
+- Updated React Native Builder Bob to `0.43.1`, Turbo to `2.10.8`, TypeScript to `6.0.3`, and the matching lint/format dependencies.
+- Added the scaffold's package-specific source export condition for local development and Metro resolution.
+- Added Jest, Lefthook, Commitlint, and Release It configuration from the current scaffold.
+
+---
+
 ## v6.4.1: AGP 9 Kotlin compatibility fix
 
 ### Fixes

@@ -2,7 +2,7 @@
 [![npm version](https://img.shields.io/npm/v/@preeternal/react-native-cookie-manager.svg)](https://www.npmjs.com/package/@preeternal/react-native-cookie-manager)
 [![npm downloads](https://img.shields.io/npm/dm/@preeternal/react-native-cookie-manager.svg)](https://www.npmjs.com/package/@preeternal/react-native-cookie-manager)
 
-A modern, New Architecture–ready Cookie Manager for React Native. This is a drop-in replacement for `@react-native-cookies/cookies`, rewritten with TypeScript, TurboModules, and platform-native implementations for iOS (Swift) and Android (Kotlin).
+A modern, New Architecture–only Cookie Manager for React Native. This is a drop-in replacement for `@react-native-cookies/cookies`, rewritten with TypeScript, TurboModules, and platform-native implementations for iOS (Swift) and Android (Kotlin).
 
 ## Upstream / credits
 
@@ -34,7 +34,9 @@ Then install iOS pods:
 cd ios && bundle exec pod install
 ```
 
-Supports both old (bridged) and New Architecture (TurboModule) builds out of the box. Works in bare RN apps and in Expo Dev Builds (custom native build).
+Starting with `v7.0.0`, this package supports only React Native's New Architecture. Projects that still require the legacy bridge should stay on `v6.x`.
+
+The package works in bare React Native apps and in Expo Dev Builds (custom native builds).
 
 ### AndroidX WebKit version
 

@@ -14,6 +14,7 @@ const root = path.resolve(__dirname, '..');
 const config = withMetroConfig(getDefaultConfig(__dirname), {
   root,
   dirname: __dirname,
+  conditions: ['preeternal-react-native-cookie-manager-source'],
 });
 
 const defaultEnhanceMiddleware = config.server?.enhanceMiddleware;
