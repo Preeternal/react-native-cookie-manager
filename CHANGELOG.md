@@ -2,9 +2,17 @@
 
 ---
 
-## v7.0.0 (unreleased): New Architecture only
+## v7.0.0 (unreleased): New Architecture and iOS cookie-store events
 
-This major release updates the project to the latest `create-react-native-library` scaffold and makes the New Architecture the only supported React Native runtime. The public JavaScript CookieManager API and native cookie behavior remain unchanged.
+This major release updates the project to the latest `create-react-native-library` scaffold, makes the New Architecture the only supported React Native runtime, and continues the public API with iOS cookie-store change events, safer structured writes, and programmatic errors.
+
+Entries under **Planned before release** are accepted v7 scope but are not implemented yet.
+
+### Planned before release
+
+- Add an iOS-only `addCookieChangeListener()` for Foundation and the default WebKit store. Its minimal `{ store: 'foundation' | 'webKit' }` payload is an invalidation signal, not an exact cookie delta or one-event-per-mutation guarantee. Android reports `not_supported` because its public WebView cookie store has no global change observer.
+- Export a small, platform-neutral set of stable error codes, a `CookieManagerError` shape, and a type guard. Equivalent failures use the same code on iOS and Android; native messages and causes remain diagnostic rather than stable API.
+- Tighten `set()` validation consistently across iOS and Android, validating the complete structured input before any mutation. Fields that contain control characters or inject `Set-Cookie` attributes reject; `setFromResponse()` remains the intentionally raw API for trusted server header values.
 
 ### Added
 
@@ -16,6 +24,7 @@ This major release updates the project to the latest `create-react-native-librar
 
 - Removed the legacy iOS bridge implementation and its conditional old-architecture exports.
 - React Native projects that still require the legacy bridge must stay on `v6.x`.
+- **Planned:** structured `set()` input that native stores previously accepted inconsistently will reject when it contains invalid cookie syntax or attempts to inject raw attributes. Applications should use encoded values, or `setFromResponse()` for trusted raw `Set-Cookie` headers.
 
 ### Compatibility
 
