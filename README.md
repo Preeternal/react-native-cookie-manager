@@ -142,15 +142,56 @@ await CookieManager.removeSessionCookies({ iosCookieStore: 'webKit' });
 Use the change listener to invalidate application state after Foundation or the WebKit store changes—for example, when a login completes inside a WebView:
 
 ```ts
-const subscription = CookieManager.addCookieChangeListener(({ store }) => {
-  // Re-read the URLs relevant to the application from this store.
-  console.log(`${store} cookies changed`);
-});
+import CookieManager, {
+  type IOSCookieStore,
+} from '@preeternal/react-native-cookie-manager';
+import { useEffect } from 'react';
 
-subscription.remove();
+const url = 'https://example.com/account';
+
+useEffect(() => {
+  const subscription = CookieManager.addCookieChangeListener(
+    ({ iosCookieStore }) => {
+      refreshCookies(iosCookieStore)
+        .then((snapshot) => {
+          updateAuthState(snapshot);
+        })
+        .catch((error) => {
+          console.error('Failed to refresh cookies after invalidation', error);
+        });
+    }
+  );
+
+  return () => subscription.remove();
+}, []);
+
+async function refreshCookies(iosCookieStore: IOSCookieStore) {
+  // Read cookies matching one URL from the store that changed.
+  const matchingCookies = await CookieManager.get(url, { iosCookieStore });
+  const sessionCookie = matchingCookies.session;
+
+  // Or read every cookie in that store.
+  const allCookiesInChangedStore = await CookieManager.getAll({
+    iosCookieStore,
+  });
+
+  // When application state depends on both stores, read them separately.
+  const [allFoundationCookies, allWebKitCookies] = await Promise.all([
+    CookieManager.getAll({ iosCookieStore: 'foundation' }),
+    CookieManager.getAll({ iosCookieStore: 'webKit' }),
+  ]);
+
+  return {
+    sessionCookie,
+    allCookiesInChangedStore,
+    allFoundationCookies,
+    allWebKitCookies,
+  };
+}
+
 ```
 
-The event payload is only `{ store: 'foundation' | 'webKit' }`. It is an invalidation signal: native stores may coalesce notifications, so one event is not guaranteed for every cookie mutation and no cookie delta is provided. The listener observes Foundation and the WebKit store; custom or non-persistent `WKWebsiteDataStore` instances are outside its scope.
+The event payload is only `{ iosCookieStore: 'foundation' | 'webKit' }`. It is an invalidation signal: native stores may coalesce notifications, so one event is not guaranteed for every cookie mutation and no cookie delta is provided. Choose the narrowest useful follow-up read: select one cookie from `get()`, preserve same-name variants with `getAsArray()`, read the changed store with `getAll()` / `getAllAsArray()`, or call those methods once per store when both snapshots are required. Results from Foundation and WebKit remain separate. The listener observes Foundation and the default persistent WebKit store; custom or non-persistent `WKWebsiteDataStore` instances are outside its scope.
 
 Cookie change subscriptions are iOS-only. Calling `addCookieChangeListener()` on Android throws an error with `code: 'not_supported'` because the public Android WebView cookie store has no global change observer.
 

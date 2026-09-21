@@ -99,7 +99,7 @@
     if (strongSelf == nil) {
       return;
     }
-    [strongSelf emitOnCookieChange:@{ @"store" : store }];
+    [strongSelf emitOnCookieChange:@{ @"iosCookieStore" : store }];
   }];
 }
 

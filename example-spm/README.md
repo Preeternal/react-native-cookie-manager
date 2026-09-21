@@ -31,7 +31,8 @@ after each refresh.
 
 - local-package resolution through React Native autolinking and Metro, without
   a `file:..` dependency;
-- named Foundation/WebKit store selection and iOS change invalidations;
+- named Foundation/WebKit store selection and an iOS invalidation example that
+  reads one matching cookie, the changed store, and both store snapshots;
 - stable error codes, structured validation, raw header import, cleanup, and
   duplicate-preserving reads;
 - the same native smoke and persistence checks as the CocoaPods example.

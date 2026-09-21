@@ -36,8 +36,9 @@ You can also open `example/ios/CookieManagerExample.xcworkspace` in Xcode or
 
 - named `iosCookieStore` selection for Foundation and the default persistent
   WebKit store;
-- an iOS cookie-change subscription that re-reads the URL from the store named
-  by the invalidation event;
+- an iOS cookie-change subscription that uses the event's `iosCookieStore` to
+  re-read the URL, one matching cookie, the complete changed store, and separate
+  snapshots of both stores;
 - duplicate-name array reads, request-header generation, raw `Set-Cookie`
   import, session cleanup, and stable error codes;
 - default structured validation and the temporary v7 `validate: false`

@@ -4,7 +4,9 @@
 
 import { expect, jest, test } from '@jest/globals';
 import ReactTestRenderer from 'react-test-renderer';
-import CookieManager from '@preeternal/react-native-cookie-manager';
+import CookieManager, {
+  type CookieChangeListener,
+} from '@preeternal/react-native-cookie-manager';
 import App from '../src/App';
 
 jest.mock('@preeternal/react-native-cookie-manager', () => ({
@@ -35,6 +37,24 @@ test('renders correctly', async () => {
   });
 
   expect(addCookieChangeListener).toHaveBeenCalledTimes(1);
+  const listener = addCookieChangeListener.mock.calls[0]?.[0] as
+    CookieChangeListener | undefined;
+  const get = jest.mocked(CookieManager.get);
+  const getAll = jest.mocked(CookieManager.getAll);
+  get.mockClear();
+  getAll.mockClear();
+
+  await ReactTestRenderer.act(async () => {
+    listener?.({ iosCookieStore: 'webKit' });
+    await Promise.resolve();
+  });
+
+  expect(get).toHaveBeenCalledWith('https://app.example.com', {
+    iosCookieStore: 'webKit',
+  });
+  expect(getAll).toHaveBeenCalledWith({ iosCookieStore: 'foundation' });
+  expect(getAll).toHaveBeenCalledWith({ iosCookieStore: 'webKit' });
+
   const subscription = addCookieChangeListener.mock.results[0]?.value as
     { remove: () => void } | undefined;
 

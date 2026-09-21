@@ -100,14 +100,14 @@ describe('addCookieChangeListener', () => {
     expect(mockNativeSubscriptionRemove).toHaveBeenCalledTimes(2);
   });
 
-  it('forwards only the native store invalidation payload', () => {
+  it('forwards only the native iOS store invalidation payload', () => {
     const listener = jest.fn();
     const subscription = CookieManager.addCookieChangeListener(listener);
     const nativeListener = mockOnCookieChange.mock.calls[0]?.[0];
 
-    nativeListener?.({ store: 'webKit' });
+    nativeListener?.({ iosCookieStore: 'webKit' });
 
-    expect(listener).toHaveBeenCalledWith({ store: 'webKit' });
+    expect(listener).toHaveBeenCalledWith({ iosCookieStore: 'webKit' });
     subscription.remove();
   });
 

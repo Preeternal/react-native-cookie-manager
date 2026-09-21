@@ -21,10 +21,10 @@ export type Cookie = {
 
 export type Cookies = Record<string, Cookie>;
 
-export type CookieChangeStore = 'foundation' | 'webKit';
+export type IOSCookieStore = 'foundation' | 'webKit';
 
 export type CookieChangeEvent = {
-  store: CookieChangeStore;
+  iosCookieStore: IOSCookieStore;
 };
 
 export interface Spec extends TurboModule {

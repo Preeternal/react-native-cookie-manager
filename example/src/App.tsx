@@ -108,9 +108,15 @@ export default function App() {
     ReadonlyArray<CookieChangeEvent>
   >([]);
   const [lastInvalidationRead, setLastInvalidationRead] = useState<{
-    store: CookieChangeEvent['store'];
+    iosCookieStore: CookieChangeEvent['iosCookieStore'];
     url: string;
-    cookies: Cookies;
+    matchingCookies: Cookies;
+    firstMatchingCookie: Cookie | null;
+    allCookiesInChangedStore: Cookies;
+    allCookiesByStore: {
+      foundation: Cookies;
+      webKit: Cookies;
+    };
   } | null>(null);
 
   const inspectUrl = useMemo(() => {
@@ -302,12 +308,26 @@ export default function App() {
     const subscription = CookieManager.addCookieChangeListener((event) => {
       setCookieChangeEventCount((count) => count + 1);
       setRecentCookieChangeEvents((events) => [event, ...events].slice(0, 8));
-      CookieManager.get(inspectUrl, { iosCookieStore: event.store })
-        .then((cookies) => {
+      const { iosCookieStore } = event;
+      Promise.all([
+        CookieManager.get(inspectUrl, { iosCookieStore }),
+        CookieManager.getAll({ iosCookieStore: 'foundation' }),
+        CookieManager.getAll({ iosCookieStore: 'webKit' }),
+      ])
+        .then(([matchingCookies, foundationCookies, webKitCookies]) => {
           setLastInvalidationRead({
-            store: event.store,
+            iosCookieStore,
             url: inspectUrl,
-            cookies,
+            matchingCookies,
+            firstMatchingCookie: Object.values(matchingCookies)[0] ?? null,
+            allCookiesInChangedStore:
+              iosCookieStore === 'foundation'
+                ? foundationCookies
+                : webKitCookies,
+            allCookiesByStore: {
+              foundation: foundationCookies,
+              webKit: webKitCookies,
+            },
           });
         })
         .catch((error) => {
@@ -356,9 +376,11 @@ export default function App() {
             <Text>
               The example keeps one subscription active and re-reads the current
               URL whenever Foundation or default WebKit reports a change. Add or
-              clear cookies above to see events. The event&apos;s store field
-              selects the matching store for that read; mutations from WebViews
-              and native networking are observed by the same listener.
+              clear cookies above to see events. Its iosCookieStore field
+              selects the matching store for that read. For comparison, this
+              screen also picks one matching cookie and reads both complete
+              stores; production code should choose only the narrowest snapshot
+              it needs.
             </Text>
             <View style={styles.output}>
               <Text testID="cookie-change-event-count">
@@ -368,7 +390,7 @@ export default function App() {
                 Recent stores:{' '}
                 {recentCookieChangeEvents.length > 0
                   ? recentCookieChangeEvents
-                      .map((event) => event.store)
+                      .map((event) => event.iosCookieStore)
                       .join(', ')
                   : 'none yet'}
               </Text>

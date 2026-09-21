@@ -2,9 +2,9 @@ import { Platform, type EventSubscription } from 'react-native';
 import CookieManagerNative, {
   type Cookie,
   type CookieChangeEvent,
-  type CookieChangeStore,
   type CookieSameSite,
   type Cookies,
+  type IOSCookieStore,
 } from './NativeCookieManager';
 import {
   createCookieManagerError,
@@ -12,8 +12,6 @@ import {
   type CookieManagerError,
   type CookieManagerErrorCode,
 } from './errors';
-
-export type IOSCookieStore = 'foundation' | 'webKit';
 
 export type IOSCookieStoreOptions = {
   iosCookieStore?: IOSCookieStore;
@@ -316,11 +314,11 @@ const CookieManager = {
 export type {
   Cookie,
   CookieChangeEvent,
-  CookieChangeStore,
   CookieManagerError,
   CookieManagerErrorCode,
   CookieSameSite,
   Cookies,
+  IOSCookieStore,
 };
 export { isCookieManagerError };
 export default CookieManager;

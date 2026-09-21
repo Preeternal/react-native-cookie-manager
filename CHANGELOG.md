@@ -8,7 +8,7 @@ This major release moves the library to a New Architecture–only runtime and ad
 
 ### Added
 
-- Added iOS-only `addCookieChangeListener()` for Foundation and the app's default persistent WebKit store. Its minimal `{ store: 'foundation' | 'webKit' }` payload is an invalidation signal rather than an exact cookie delta or one-event-per-mutation guarantee. Native observers are shared across subscribers and are removed after the last subscription; Android throws `not_supported` instead of emulating incomplete events.
+- Added iOS-only `addCookieChangeListener()` for Foundation and the app's default persistent WebKit store. Its minimal `{ iosCookieStore: 'foundation' | 'webKit' }` payload uses the same `IOSCookieStore` vocabulary as store-selecting methods and is an invalidation signal rather than an exact cookie delta or one-event-per-mutation guarantee. Native observers are shared across subscribers and are removed after the last subscription; Android throws `not_supported` instead of emulating incomplete events.
 - Added the platform-neutral `CookieManagerErrorCode` and `CookieManagerError` types plus `isCookieManagerError()`. iOS, Android, and JavaScript-created errors now share the stable codes `invalid_url`, `invalid_cookie`, `domain_mismatch`, `not_supported`, `storage_error`, and `network_error`; native messages and causes remain diagnostic details.
 - Added default-on structured validation for `set()` on iOS and Android. The complete input is checked before any store mutation; structural delimiters and control characters that could change `Set-Cookie` meaning always reject, while ordinary printable values do not require percent-encoding or base64url.
 - Added consistent optional `{ iosCookieStore }` overloads to `set()`, `get()`, `getAsArray()`, `getCookieHeader()`, `getAll()`, `getAllAsArray()`, `clearAll()`, and `clearByName()`. Omitting options selects Foundation; Android continues to use its single shared store. Exported `IOSCookieStore`, `IOSCookieStoreOptions`, and `SetCookieOptions` support the named API.
@@ -58,7 +58,7 @@ This major release moves the library to a New Architecture–only runtime and ad
 
 ### Documentation
 
-- Added a live invalidation example to both CocoaPods and SwiftPM apps: it keeps one listener for the screen lifecycle, uses the emitting store to re-read the current URL after each event, and removes the subscription on unmount.
+- Added a live invalidation example to both CocoaPods and SwiftPM apps: it keeps one listener for the screen lifecycle, uses `iosCookieStore` to read the current URL, one matching cookie, the changed store, and separate snapshots of both stores after each event, then removes the subscription on unmount.
 - Documented code-based error handling and the intentionally unstable status of native messages and causes; both example apps now display stable codes through `isCookieManagerError()` instead of parsing native strings.
 - Documented the v6-to-v7 validation migration, including safe rejection logging that excludes cookie values and raw headers, the temporary `{ validate: false }` diagnostic path, and the distinction between structured `set()` and raw `setFromResponse()`.
 - Updated both example apps and their device smoke suites to use the named `iosCookieStore` selector across reads, writes, and cleanup, and to exercise default validation plus the compatibility escape hatch.
