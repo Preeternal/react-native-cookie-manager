@@ -4,7 +4,7 @@
 
 ## v7.0.0 (unreleased): New Architecture, SwiftPM, and iOS cookie-store events
 
-This major release updates the project to the latest `create-react-native-library` scaffold, makes the New Architecture the only supported React Native runtime, and continues the public API with iOS cookie-store change events, safer structured writes, and programmatic errors.
+This major release moves the library to a New Architecture–only runtime and adds iOS cookie-store change events, safer structured writes, named iOS store selection, stable error codes, and Swift Package Manager support.
 
 ### Added
 
@@ -12,7 +12,7 @@ This major release updates the project to the latest `create-react-native-librar
 - Added the platform-neutral `CookieManagerErrorCode` and `CookieManagerError` types plus `isCookieManagerError()`. iOS, Android, and JavaScript-created errors now share the stable codes `invalid_url`, `invalid_cookie`, `domain_mismatch`, `not_supported`, `storage_error`, and `network_error`; native messages and causes remain diagnostic details.
 - Added default-on structured validation for `set()` on iOS and Android. The complete input is checked before any store mutation; structural delimiters and control characters that could change `Set-Cookie` meaning always reject, while ordinary printable values do not require percent-encoding or base64url.
 - Added consistent optional `{ iosCookieStore }` overloads to `set()`, `get()`, `getAsArray()`, `getCookieHeader()`, `getAll()`, `getAllAsArray()`, `clearAll()`, and `clearByName()`. Omitting options selects Foundation; Android continues to use its single shared store. Exported `IOSCookieStore`, `IOSCookieStoreOptions`, and `SetCookieOptions` support the named API.
-- Hardened raw `setFromResponse()` imports against invalid URLs and CR/LF/NUL header injection without applying the structured cookie-field grammar. Trusted raw attributes such as `Secure`, `HttpOnly`, or future provider-supported attributes remain available through that API.
+- Hardened raw `setFromResponse()` imports against URLs that cannot be parsed with a host and against CR/LF/NUL header injection, without applying the structured cookie-field grammar. Trusted raw attributes such as `Secure`, `HttpOnly`, or future provider-supported attributes remain available through that API.
 - Added Swift Package Manager support for iOS through a self-managed `Package.swift`, while retaining CocoaPods compatibility.
 - Added a podless React Native 0.87 `example-spm` workspace app that exercises the local package through React Native autolinking and Metro.
 - Added CI coverage that generates the RN 0.87 SwiftPM workspace and builds the example for an iOS Simulator.
@@ -31,6 +31,7 @@ This major release updates the project to the latest `create-react-native-librar
 - Updated the library Android toolchain to Java 17 source and target compatibility.
 - Kept the package as a codegen-backed TurboModule on both iOS and Android.
 - Kept every legacy positional `useWebKit` overload for the full v7 line. They are deprecated in favor of `{ iosCookieStore }`; default validation applies to both `set()` overloads.
+- Kept v6's platform-delegated URL acceptance for store operations instead of adding a global HTTP(S)-only restriction. `invalid_url` identifies the parsing or host checks performed by the individual operation.
 
 ### Deprecated
 
@@ -51,6 +52,8 @@ This major release updates the project to the latest `create-react-native-librar
 - Added JavaScript, Swift, and Kotlin contract coverage that locks the same six public error codes across all layers and rejects legacy or unknown codes in the public type guard.
 - Added Swift lifecycle and native-store integration coverage for change notifications from Foundation and the app's default persistent WebKit store, plus Android unit coverage for the unsupported observation contract.
 - Added JavaScript coverage for named/legacy store selectors, Foundation defaults, and invalid options, plus matching Swift/Kotlin validation suites for strict mode, the temporary compatibility path, always-on structural checks, printable values, and raw-header injection.
+- Added device checks that verify rejected structured input leaves both iOS stores (or the shared Android store) unchanged before exercising the temporary compatibility path.
+- Added the example subscription lifecycle test to CI and added type-checking for both example applications.
 - Verified the event-enabled native module through both CocoaPods and React Native 0.87 SwiftPM example builds.
 
 ### Documentation
@@ -59,6 +62,7 @@ This major release updates the project to the latest `create-react-native-librar
 - Documented code-based error handling and the intentionally unstable status of native messages and causes; both example apps now display stable codes through `isCookieManagerError()` instead of parsing native strings.
 - Documented the v6-to-v7 validation migration, including safe rejection logging that excludes cookie values and raw headers, the temporary `{ validate: false }` diagnostic path, and the distinction between structured `set()` and raw `setFromResponse()`.
 - Updated both example apps and their device smoke suites to use the named `iosCookieStore` selector across reads, writes, and cleanup, and to exercise default validation plus the compatibility escape hatch.
+- Replaced the generated example READMEs with project-specific run instructions and a concise description of the API scenarios each app demonstrates.
 - Documented one-time CocoaPods deintegration, fresh-clone/CI SwiftPM generation, and the requirement that every native dependency provide or patch in a compatible `Package.swift`.
 
 ---

@@ -86,6 +86,7 @@ Run the JavaScript unit tests with:
 
 ```sh
 yarn test
+yarn test:example
 ```
 
 Run the standalone Swift unit tests with:
@@ -106,7 +107,6 @@ Release It handles version bumps, tags, GitHub releases, and npm publishing:
 yarn release
 ```
 
-
 ### Scripts
 
 The `package.json` file contains various scripts for common tasks:
@@ -114,7 +114,8 @@ The `package.json` file contains various scripts for common tasks:
 - `yarn`: setup project by installing dependencies.
 - `yarn typecheck`: type-check files with TypeScript.
 - `yarn lint`: lint files with [ESLint](https://eslint.org/).
-- `yarn test`: run unit tests with [Jest](https://jestjs.io/).
+- `yarn test`: run library unit tests with [Jest](https://jestjs.io/).
+- `yarn test:example`: verify the example subscription lifecycle.
 - `yarn release`: prepare and publish a release with [Release It](https://github.com/release-it/release-it).
 - `yarn example start`: start the Metro server for the example app.
 - `yarn example android`: run the example app on Android.

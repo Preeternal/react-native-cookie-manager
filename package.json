@@ -1,7 +1,7 @@
 {
   "name": "@preeternal/react-native-cookie-manager",
   "version": "6.4.1",
-  "description": "A modern, New Architecture–only Cookie Manager for React Native. A drop-in replacement for @react-native-cookies/cookies, fully rewritten with TypeScript, TurboModules, and platform-native implementations for iOS and Android. Supports reading, writing, and clearing cookies with a clean and predictable API.",
+  "description": "A maintained New Architecture–only cookie manager for React Native, with TurboModules and platform-native Swift and Kotlin implementations.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -41,8 +41,9 @@
     "example:spm": "yarn workspace @preeternal/react-native-cookie-manager-example-spm",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build example-spm/android/build example-spm/android/app/build example-spm/ios/build lib",
     "prepare": "bob build",
-    "typecheck": "tsc -p tsconfig.build.json && yarn workspace @preeternal/react-native-cookie-manager-example-spm typecheck",
+    "typecheck": "tsc -p tsconfig.build.json && yarn workspace @preeternal/react-native-cookie-manager-example typecheck && yarn workspace @preeternal/react-native-cookie-manager-example-spm typecheck",
     "test": "jest",
+    "test:example": "yarn workspace @preeternal/react-native-cookie-manager-example-spm test --runInBand --no-watchman",
     "release": "release-it --only-version",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test:plugin": "node --test app.plugin.test.js"

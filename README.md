@@ -2,10 +2,10 @@
 [![npm version](https://img.shields.io/npm/v/@preeternal/react-native-cookie-manager.svg)](https://www.npmjs.com/package/@preeternal/react-native-cookie-manager)
 [![npm downloads](https://img.shields.io/npm/dm/@preeternal/react-native-cookie-manager.svg)](https://www.npmjs.com/package/@preeternal/react-native-cookie-manager)
 
-A modern, New Architecture–only Cookie Manager for React Native. This is a drop-in replacement for `@react-native-cookies/cookies`, rewritten with TypeScript, TurboModules, and platform-native implementations for iOS (Swift) and Android (Kotlin).
+A maintained, New Architecture–only cookie manager for React Native, implemented as a TurboModule with Swift on iOS and Kotlin on Android. It is a successor to `@react-native-cookies/cookies`: legacy method names and call signatures remain available, while v7 intentionally changes architecture support, validation, and error codes.
 
 > Starting with `v7.0.0`, this package supports only React Native's New
-> Architecture. Projects that still require the legacy bridge should stay 
+> Architecture. Projects that still require the legacy bridge should stay
 > on `v6.x`.
 
 The package works in bare React Native apps and in Expo Dev Builds (custom native builds).
@@ -16,21 +16,16 @@ This package is based on the public API and behavior of [`@react-native-cookies/
 
 ## Installation
 
-### Using Bun
+Install with your package manager:
 
 ```bash
+# Bun
 bun add @preeternal/react-native-cookie-manager
-```
 
-### Using yarn
-
-```bash
+# Yarn
 yarn add @preeternal/react-native-cookie-manager
-```
 
-### Using npm
-
-```bash
+# npm
 npm install @preeternal/react-native-cookie-manager
 ```
 
@@ -72,39 +67,6 @@ The SwiftPM commands and generated layout are experimental in React Native
 0.87 and may change in later releases. Do not use this integration in
 production yet. See the [React Native 0.87 release notes](https://reactnative.dev/blog/2026/08/11/react-native-0.87#experimental-swift-package-manager-support-for-ios).
 
-### AndroidX WebKit version
-
-Android uses `androidx.webkit:webkit:1.16.0` by default. Most applications do not need to configure it. Bare React Native apps can override the requested version in `android/gradle.properties`:
-
-```properties
-react_native_cookie_manager_webkit_version=1.16.0
-```
-
-Alternatively, an existing shared override in the root `android/build.gradle` is honored, including when it also configures `react-native-webview`:
-
-```gradle
-rootProject.ext.webkitVersion = "1.16.0"
-```
-
-The package-specific `gradle.properties` value takes precedence when both are present.
-
-Expo apps can configure the same property during prebuild:
-
-```json
-{
-  "expo": {
-    "plugins": [
-      [
-        "@preeternal/react-native-cookie-manager",
-        { "androidWebkitVersion": "1.16.0" }
-      ]
-    ]
-  }
-}
-```
-
-Versions older than `1.6.0` are unsupported because the library compiles against `CookieManagerCompat.getCookieInfo()`. Gradle may select a higher compatible version when another dependency requires it.
-
 ## Usage
 
 ### After a network request
@@ -128,6 +90,8 @@ The upstream-compatible `getFromResponse(url)` remains available but is deprecat
 
 ### Manage the cookie store
 
+On iOS, “the WebKit store” below means `WKWebsiteDataStore.default().httpCookieStore`, the app's default persistent store.
+
 ```ts
 // Foundation on iOS; options are optional
 await CookieManager.set('https://example.com', {
@@ -141,7 +105,7 @@ await CookieManager.set('https://example.com', {
   maxAge: 60 * 60 * 24 * 7,
 });
 
-// iOS: write to the default persistent WebKit store
+// iOS: write to the WebKit store
 await CookieManager.set(
   'https://example.com',
   { name: 'web_session', value: 'abc123', path: '/', secure: true },
@@ -162,7 +126,7 @@ await CookieManager.clearByName('https://example.com', 'session');
 // Clear Foundation on iOS; clear the shared store on Android
 await CookieManager.clearAll();
 
-// Clear Foundation and the app's default persistent WebKit store on iOS
+// Clear Foundation and the WebKit store on iOS
 await CookieManager.clearAllStores();
 
 // Remove session cookies from both iOS stores; shared Android store
@@ -173,11 +137,28 @@ await CookieManager.removeSessionCookies({ iosCookieStore: 'both' }); // explici
 await CookieManager.removeSessionCookies({ iosCookieStore: 'webKit' });
 ```
 
+### Observe iOS cookie-store changes
+
+Use the change listener to invalidate application state after Foundation or the WebKit store changes—for example, when a login completes inside a WebView:
+
+```ts
+const subscription = CookieManager.addCookieChangeListener(({ store }) => {
+  // Re-read the URLs relevant to the application from this store.
+  console.log(`${store} cookies changed`);
+});
+
+subscription.remove();
+```
+
+The event payload is only `{ store: 'foundation' | 'webKit' }`. It is an invalidation signal: native stores may coalesce notifications, so one event is not guaranteed for every cookie mutation and no cookie delta is provided. The listener observes Foundation and the WebKit store; custom or non-persistent `WKWebsiteDataStore` instances are outside its scope.
+
+Cookie change subscriptions are iOS-only. Calling `addCookieChangeListener()` on Android throws an error with `code: 'not_supported'` because the public Android WebView cookie store has no global change observer.
+
 ### Structured validation and v6 migration
 
-`set()` validates the complete structured cookie before touching a native store. Validation is enabled by default on both platforms. It rejects malformed names, paths and expiry dates as well as control characters or field delimiters that could change the resulting cookie structure. Printable values do not need percent-encoding or base64url merely because they contain spaces, Unicode, quotes, commas, backslashes, or `=`.
+`set()` validates the complete structured cookie before touching a native store. Validation is enabled by default on both platforms. It rejects malformed names, paths, and expiry dates, together with control characters or field delimiters that could change the cookie's structure. Printable values do not require percent-encoding or base64url merely because they contain spaces, Unicode, quotes, commas, backslashes, or `=`.
 
-During the v7 migration, `{ validate: false }` temporarily restores native-store handling for compatibility-sensitive cases. For example, v6 silently treated an unparseable `expires` value as a session cookie:
+During migration from v6, `{ validate: false }` temporarily restores native-store handling for compatibility-sensitive input. For example, v6 treated an unparseable `expires` value as a session cookie:
 
 ```ts
 import CookieManager, {
@@ -187,9 +168,9 @@ import CookieManager, {
 
 const cookieFromBackend: Cookie = {
   name: 'session',
-  value: sessionToken,
+  value: '<token supplied by the backend>',
   path: '/',
-  // This backend format is not the ISO 8601 format required by set().
+  // set() requires an ISO 8601 expiry date.
   expires: '2032-06-09 10:18:14 UTC',
 };
 
@@ -207,34 +188,15 @@ try {
   }
 }
 
-// Temporary diagnostic/migration switch after confirming the cause.
+// Use only after confirming that validation caused the migration failure.
 await CookieManager.set('https://example.com', cookieFromBackend, {
   validate: false,
 });
 ```
 
-`validate` is deprecated and will be removed in the next major version, when validation becomes unconditional. Do not automatically retry every `invalid_cookie` rejection with validation disabled: log the stable error code and safe source context, fix the producer/backend, then remove the escape hatch. Never log the cookie value, a raw `Set-Cookie` header, an authentication token, or a session identifier. Error messages are useful diagnostics but are not stable enough for branching.
+The `validate` field is deprecated and will be removed in the next major version, when validation becomes unconditional. Do not automatically retry every `invalid_cookie` rejection with validation disabled. Log the stable code and safe source context, fix the producer or backend, and then remove the escape hatch. Never log a cookie value, raw `Set-Cookie` header, authentication token, or session identifier. Messages are diagnostic text and must not be used for branching.
 
-Structural safety checks remain active when `validate: false`. In particular, CR, LF, NUL, other ASCII controls, and `;` in a structured value still reject. Android WebView accepts only a raw `Set-Cookie` string and treats the first `;` as the end of the value even inside quotes, so a literal semicolon cannot be preserved without application/backend encoding. The library never encodes cookie values implicitly.
-
-### Observe iOS cookie-store changes
-
-Use the change listener to invalidate application state after Foundation or the app's default persistent WebKit store changes—for example, when a login completes inside a WebView:
-
-```ts
-const subscription = CookieManager.addCookieChangeListener(({ store }) => {
-  // Re-read the URLs relevant to the application from this store.
-  console.log(`${store} cookies changed`);
-});
-
-subscription.remove();
-```
-
-The event payload is only `{ store: 'foundation' | 'webKit' }`. It is an invalidation signal: native stores may coalesce notifications, so one event is not guaranteed for every cookie mutation and no cookie delta is provided. The listener observes Foundation and the default persistent WebKit store; custom or non-persistent `WKWebsiteDataStore` instances are outside its scope.
-
-Cookie change subscriptions are iOS-only. Calling `addCookieChangeListener()` on Android throws an error with `code: 'not_supported'` because the public Android WebView cookie store has no global change observer.
-
-Promise-returning methods reject when an operation fails.
+Structural safety checks remain active when `validate: false`. CR, LF, NUL, other ASCII controls, and `;` in a structured value still reject. Android WebView accepts only a raw `Set-Cookie` string and treats the first `;` as an attribute separator, even inside quotes. A literal semicolon therefore cannot be preserved without encoding agreed by the application and backend; the library never encodes values implicitly.
 
 ### Import a Set-Cookie header
 
@@ -251,17 +213,17 @@ Semicolons in this raw API delimit real attributes; they do not escape a literal
 
 ## API
 
-The public API remains compatible with `@react-native-cookies/cookies`.
+Legacy method names and positional boolean overloads remain source-compatible with `@react-native-cookies/cookies`. The New Architecture requirement, default validation, and stable error taxonomy are intentional v7 behavior changes.
 
 | Method | Platforms | Description |
 | --- | --- | --- |
-| **`addCookieChangeListener(listener)`**: `EventSubscription` | iOS | Subscribes to invalidations from Foundation and the app's default persistent WebKit store. The native observers are shared across JS subscribers and stop after the last subscription is removed. Android throws `not_supported`. |
-| **`set(url, cookie, options?)`**: `Promise<boolean>` | iOS, Android | Validates and stores a cookie, including `sameSite` and relative `maxAge`. On iOS, omitted options select Foundation; `{ iosCookieStore: 'webKit' }` selects the app's default persistent WebKit store. `options.validate` is a temporary deprecated v7 migration escape hatch. |
-| **`get(url, options?)`**: `Promise<Cookies>` | iOS, Android | Reads matching cookies without making a request. On iOS, omitted options select Foundation; `{ iosCookieStore: 'webKit' }` selects the app's default persistent WebKit store. |
+| **`addCookieChangeListener(listener)`**: `EventSubscription` | iOS | Subscribes to invalidations from Foundation and the WebKit store. Native observers are shared across JS subscribers and stop after the last subscription is removed. Android throws `not_supported`. |
+| **`set(url, cookie, options?)`**: `Promise<boolean>` | iOS, Android | Validates and stores a cookie, including `sameSite` and relative `maxAge`. On iOS, omitted options select Foundation; `{ iosCookieStore: 'webKit' }` selects the WebKit store. `options.validate` is a temporary deprecated v7 migration escape hatch. |
+| **`get(url, options?)`**: `Promise<Cookies>` | iOS, Android | Reads matching cookies without making a request. On iOS, omitted options select Foundation; `{ iosCookieStore: 'webKit' }` selects the WebKit store. |
 | **`getAsArray(url, options?)`**: `Promise<ReadonlyArray<Cookie>>` | iOS, Android | Reads matching cookies without collapsing cookies that share a name. Store selection matches `get()`. |
 | **`getCookieHeader(url, options?)`**: `Promise<string>` | iOS, Android | Returns the selected store's matching cookies as a `Cookie` request-header value, or an empty string. |
 | **`clearAll(options?)`**: `Promise<boolean>` | iOS, Android | Clears the shared Android store or the selected iOS store. |
-| **`clearAllStores()`**: `Promise<boolean>` | iOS, Android | Clears the shared Android store, or Foundation and the app's default persistent WebKit store on iOS; resolves `true` after native completion. |
+| **`clearAllStores()`**: `Promise<boolean>` | iOS, Android | Clears the shared Android store, or Foundation and the WebKit store on iOS; resolves `true` after native completion. |
 | **`getAll(options?)`**: `Promise<Cookies>` | iOS | Reads all cookies from the selected iOS store. |
 | **`getAllAsArray(options?)`**: `Promise<ReadonlyArray<Cookie>>` | iOS | Reads the selected iOS store without collapsing cookies that share a name. |
 | **`clearByName(url, name, options?)`**: `Promise<boolean>` | iOS, Android | Clears same-name cookies from the selected iOS store, or variants applicable to `url` in the shared Android store. |
@@ -303,7 +265,7 @@ try {
 
 | Code | Meaning |
 | --- | --- |
-| `invalid_url` | The supplied URL is invalid or lacks the required HTTP(S) origin. |
+| `invalid_url` | The supplied URL failed the parsing or host check required by that operation. |
 | `invalid_cookie` | Cookie input cannot be represented or accepted as a cookie. |
 | `domain_mismatch` | The cookie domain does not match the URL host or one of its parent domains. |
 | `not_supported` | The requested capability is unavailable on this platform or native provider. |
@@ -311,6 +273,8 @@ try {
 | `network_error` | The deprecated `getFromResponse()` request failed. No other method performs network I/O. |
 
 The human-readable `message` and any native `cause` are diagnostic details and are not stable API. Do not branch on their contents.
+
+v7 does not add a global HTTP(S)-only check to every store operation. URL acceptance otherwise remains delegated to the platform store for compatibility with v6. The deprecated network method still requires an HTTP(S) URL.
 
 ### Cookie shape
 
@@ -358,12 +322,43 @@ On Android, metadata is populated when the device's Android System WebView provi
 - iOS has two stores: `NSHTTPCookieStorage` (used by URLSession) and `WKHTTPCookieStore` (used by WKWebView / `react-native-webview`).
 - Pass `{ iosCookieStore: 'webKit' }` to `set()` to use the default WKWebView cookie store. For network-only flows, omit options or select `'foundation'` to use `NSHTTPCookieStorage`.
 - To apply a single-store method to both stores, call it once with `{ iosCookieStore: 'foundation' }` (or omitted options) and once with `{ iosCookieStore: 'webKit' }`. Results are returned separately and are not merged.
-- `getCookieHeader(url, { iosCookieStore: 'webKit' })` filters cookies from the app's default persistent WebKit store by domain, path, `Secure`, and expiry. A URL alone cannot reproduce WebKit's `SameSite`, partition, or third-party request context, so do not treat it as the exact header of an embedded WebView request.
+- `getCookieHeader(url, { iosCookieStore: 'webKit' })` filters cookies from the WebKit store by domain, path, `Secure`, and expiry. A URL alone cannot reproduce WebKit's `SameSite`, partition, or third-party request context, so do not treat it as the exact header of an embedded WebView request.
 - Use `clearAllStores()` when logout must clear both app-accessible stores. The library cannot access a non-persistent or custom store owned by a specific WebView.
 - On Android the flag is ignored; WebView and native use the same store.
 
 > [!WARNING]
 > On Android, `react-native-webview`'s `incognito` mode currently clears the shared app-wide cookie store, including cookies used by React Native networking. Avoid it when your app relies on authenticated native requests. See [react-native-webview#3988](https://github.com/react-native-webview/react-native-webview/issues/3988).
+
+### AndroidX WebKit version
+
+Android uses `androidx.webkit:webkit:1.16.0` by default. Most applications do not need to configure it. Bare React Native apps can override the requested version in `android/gradle.properties`:
+
+```properties
+react_native_cookie_manager_webkit_version=1.16.0
+```
+
+An existing shared override in the root `android/build.gradle` is also honored, including when it configures `react-native-webview`:
+
+```gradle
+rootProject.ext.webkitVersion = "1.16.0"
+```
+
+The package-specific `gradle.properties` value takes precedence when both are present. Expo apps can set it during prebuild:
+
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "@preeternal/react-native-cookie-manager",
+        { "androidWebkitVersion": "1.16.0" }
+      ]
+    ]
+  }
+}
+```
+
+Versions older than `1.6.0` are unsupported because the library compiles against `CookieManagerCompat.getCookieInfo()`. Gradle may select a higher compatible version when another dependency requires it.
 
 ### Persistence and expiration
 
@@ -382,6 +377,13 @@ If the app never creates a WebView, use the Foundation store instead by omitting
 On Android, mutation methods automatically flush before their Promises resolve. Calling `flush()` immediately after awaiting `set()`, `setFromResponse()`, `getFromResponse()`, `clearByName()`, `clearAll()`, `clearAllStores()`, or `removeSessionCookies()` is redundant. Use it only as an explicit persistence barrier after the shared Android store was changed outside this library.
 
 The library intentionally does not maintain a separate cookie backup or silently replay cookies on startup. That could resurrect expired or logged-out authentication state and would require the application to choose appropriate secure storage. Prefer server-defined persistent cookies; call `removeSessionCookies()` before the first request or WebView load when the application requires a clean session on launch.
+
+## Examples
+
+- [`example/`](example/) uses CocoaPods on iOS and is also the Android example.
+- [`example-spm/`](example-spm/) uses React Native 0.87 SwiftPM autolinking without CocoaPods.
+
+Both apps demonstrate store selection, iOS invalidations, stable errors, structured validation, native smoke checks, and persistence across an app restart.
 
 ## Contributing
 
