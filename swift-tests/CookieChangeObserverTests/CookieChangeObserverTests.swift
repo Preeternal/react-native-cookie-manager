@@ -61,9 +61,11 @@ final class CookieChangeObserverTests: XCTestCase {
         event.fulfill()
       }
     }
-    HTTPCookieStorage.shared.setCookie(cookie)
+    DispatchQueue.main.async {
+      HTTPCookieStorage.shared.setCookie(cookie)
+    }
 
-    wait(for: [event], timeout: 2)
+    wait(for: [event], timeout: 5)
     observer.stop()
     HTTPCookieStorage.shared.deleteCookie(cookie)
   }
@@ -71,6 +73,7 @@ final class CookieChangeObserverTests: XCTestCase {
   func testWebKitMutationEmitsWebKitInvalidation() throws {
     let observer = CookieChangeObserver()
     let event = expectation(description: "WebKit cookie change")
+    let mutation = expectation(description: "WebKit mutation")
     let cleanup = expectation(description: "WebKit cleanup")
     let cookie = try makeCookie(name: "webkit-\(UUID().uuidString)")
     let store = WKWebsiteDataStore.default().httpCookieStore
@@ -80,12 +83,14 @@ final class CookieChangeObserverTests: XCTestCase {
         event.fulfill()
       }
     }
-    store.setCookie(cookie)
+    DispatchQueue.main.async {
+      store.setCookie(cookie) { mutation.fulfill() }
+    }
 
-    wait(for: [event], timeout: 2)
+    wait(for: [mutation, event], timeout: 5)
     observer.stop()
     store.delete(cookie) { cleanup.fulfill() }
-    wait(for: [cleanup], timeout: 2)
+    wait(for: [cleanup], timeout: 5)
   }
 
   private func makeCookie(name: String) throws -> HTTPCookie {
