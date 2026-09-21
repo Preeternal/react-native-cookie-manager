@@ -2,7 +2,7 @@
 
 ---
 
-## v7.0.0 (unreleased): New Architecture, SwiftPM, and iOS cookie-store events
+## v7.0.0: New Architecture, SwiftPM, and iOS cookie-store events
 
 v7 requires the React Native New Architecture. It also adds Swift Package Manager support, iOS cookie change events, safer structured writes, named iOS store options, and stable error codes.
 

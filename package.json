@@ -1,6 +1,6 @@
 {
   "name": "@preeternal/react-native-cookie-manager",
-  "version": "6.4.1",
+  "version": "7.0.0",
   "description": "A maintained New Architecture–only cookie manager for React Native, with TurboModules and platform-native Swift and Kotlin implementations.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
