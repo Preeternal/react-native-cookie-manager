@@ -77,6 +77,19 @@ const addCookieChangeListener = (
 const removeSessionCookies = (
   options: RemoveSessionCookiesOptions = {}
 ): Promise<boolean> => {
+  if (
+    typeof options !== 'object' ||
+    options === null ||
+    Array.isArray(options)
+  ) {
+    return Promise.reject(
+      createCookieManagerError(
+        'invalid_cookie',
+        'Cookie store options must be an object'
+      )
+    );
+  }
+
   switch (options.iosCookieStore ?? 'both') {
     case 'foundation':
       return CookieManagerNative.removeSessionCookies(true, false);
@@ -86,7 +99,10 @@ const removeSessionCookies = (
       return CookieManagerNative.removeSessionCookies(true, true);
     default:
       return Promise.reject(
-        new Error('iosCookieStore must be "foundation", "webKit", or "both"')
+        createCookieManagerError(
+          'invalid_cookie',
+          'iosCookieStore must be "foundation", "webKit", or "both"'
+        )
       );
   }
 };
@@ -117,7 +133,11 @@ const normalizeIOSCookieStore = (
     return false;
   }
 
-  if (typeof optionsOrUseWebKit !== 'object' || optionsOrUseWebKit === null) {
+  if (
+    typeof optionsOrUseWebKit !== 'object' ||
+    optionsOrUseWebKit === null ||
+    Array.isArray(optionsOrUseWebKit)
+  ) {
     throw createCookieManagerError(
       'invalid_cookie',
       'Cookie store options must be an object'
