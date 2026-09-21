@@ -146,10 +146,15 @@ import CookieManager, {
   type IOSCookieStore,
 } from '@preeternal/react-native-cookie-manager';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 
 const url = 'https://example.com/account';
 
 useEffect(() => {
+  if (Platform.OS !== 'ios') {
+    return;
+  }
+
   const subscription = CookieManager.addCookieChangeListener(
     ({ iosCookieStore }) => {
       refreshCookies(iosCookieStore)
