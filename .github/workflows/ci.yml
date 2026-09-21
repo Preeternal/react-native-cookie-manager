@@ -36,6 +36,22 @@ jobs:
       - name: Test Expo config plugin
         run: yarn test:plugin
 
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run unit tests
+        run: yarn test --maxWorkers=2 --coverage
+
+      - name: Test example subscription lifecycle
+        run: yarn test:example
+
   build-library:
     runs-on: ubuntu-latest
 
@@ -243,9 +259,12 @@ jobs:
         run: |
           CLANG_MODULE_CACHE_PATH="$RUNNER_TEMP/clang-module-cache" \
           SWIFT_MODULECACHE_PATH="$RUNNER_TEMP/swift-module-cache" \
+          COOKIE_MANAGER_SWIFT_TESTS=1 \
           swift test
 
       - name: Run iOS simulator tests
+        env:
+          COOKIE_MANAGER_SWIFT_TESTS: 1
         run: |
           set -euo pipefail
 
@@ -292,3 +311,49 @@ jobs:
           name: ios-build-log
           if-no-files-found: warn
           path: ${{ runner.temp }}/ios-build.log
+
+  build-ios-spm-rn87:
+    runs-on: macos-latest
+
+    env:
+      XCODE_VERSION: latest-stable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Use appropriate Xcode version
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Cache React Native SwiftPM artifacts
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/Library/Caches/ReactNative/spm-artifacts
+          key: ${{ runner.os }}-react-native-spm-${{ hashFiles('example-spm/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-react-native-spm-
+
+      - name: Build RN 0.87 SwiftPM example for iOS
+        run: |
+          set -euo pipefail
+          IOS_BUILD_LOG="$RUNNER_TEMP/ios-spm-build.log"
+          if ! yarn example:spm build:ios 2>&1 | tee "$IOS_BUILD_LOG"; then
+            echo "::group::First iOS SwiftPM errors"
+            grep -nE " error: |fatal error:|Command PhaseScriptExecution failed|No such file|cannot find type " \
+              "$IOS_BUILD_LOG" | head -n 80 || true
+            echo "::endgroup::"
+            exit 1
+          fi
+
+      - name: Upload iOS SwiftPM build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-spm-rn87-build-log
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/ios-spm-build.log

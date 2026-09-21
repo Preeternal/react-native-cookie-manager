@@ -1,12 +1,68 @@
 #import "CookieManager.h"
 
-// Universal include for framework/static builds; require generated Swift header
-#if __has_include(<CookieManager/CookieManager-Swift.h>)
+// SwiftPM exposes the implementation as its own module, while CocoaPods
+// generates the header under the pod target's module name.
+#if defined(SWIFT_PACKAGE)
+// SwiftPM does not expose the generated Swift compatibility header to a
+// dependent Objective-C++ target when C++ modules are disabled. Declare the
+// stable Objective-C surface exported by CookieManagerImpl instead.
+@interface CookieManagerImpl : NSObject
+- (void)startCookieChangeObserving:(void (^)(NSString *store))handler;
+- (void)stopCookieChangeObserving;
+- (void)set:(NSString *)url
+         cookie:(NSDictionary *)cookie
+      useWebKit:(BOOL)useWebKit
+        validate:(BOOL)validate
+        resolve:(RCTPromiseResolveBlock)resolve
+         reject:(RCTPromiseRejectBlock)reject;
+- (void)setFromResponse:(NSString *)url
+                 cookie:(NSString *)cookie
+                resolve:(RCTPromiseResolveBlock)resolve
+                 reject:(RCTPromiseRejectBlock)reject;
+- (void)getFromResponse:(NSString *)url
+                resolve:(RCTPromiseResolveBlock)resolve
+                 reject:(RCTPromiseRejectBlock)reject;
+- (void)get:(NSString *)url
+       useWebKit:(BOOL)useWebKit
+         resolve:(RCTPromiseResolveBlock)resolve
+          reject:(RCTPromiseRejectBlock)reject;
+- (void)getAsArray:(NSString *)url
+          useWebKit:(BOOL)useWebKit
+            resolve:(RCTPromiseResolveBlock)resolve
+             reject:(RCTPromiseRejectBlock)reject;
+- (void)getCookieHeader:(NSString *)url
+               useWebKit:(BOOL)useWebKit
+                 resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject;
+- (void)clearAll:(BOOL)useWebKit
+         resolve:(RCTPromiseResolveBlock)resolve
+          reject:(RCTPromiseRejectBlock)reject;
+- (void)clearAllStoresWithResolve:(RCTPromiseResolveBlock)resolve
+                           reject:(RCTPromiseRejectBlock)reject;
+- (void)clearByName:(NSString *)url
+               name:(NSString *)name
+          useWebKit:(BOOL)useWebKit
+            resolve:(RCTPromiseResolveBlock)resolve
+             reject:(RCTPromiseRejectBlock)reject;
+- (void)getAll:(BOOL)useWebKit
+       resolve:(RCTPromiseResolveBlock)resolve
+        reject:(RCTPromiseRejectBlock)reject;
+- (void)getAllAsArray:(BOOL)useWebKit
+              resolve:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject;
+- (void)flushWithResolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject;
+- (void)removeSessionCookiesWithClearFoundation:(BOOL)clearFoundation
+                                     clearWebKit:(BOOL)clearWebKit
+                                         resolve:(RCTPromiseResolveBlock)resolve
+                                          reject:(RCTPromiseRejectBlock)reject;
+@end
+#elif __has_include(<CookieManager/CookieManager-Swift.h>)
 #import <CookieManager/CookieManager-Swift.h>
 #elif __has_include("CookieManager-Swift.h")
 #import "CookieManager-Swift.h"
 #else
-#error "CookieManager-Swift.h not found; ensure Swift header is generated and exposed by CocoaPods"
+#error "CookieManager Swift module not found; ensure CocoaPods or SwiftPM is configured"
 #endif
 
 @interface CookieManager ()
@@ -17,7 +73,10 @@
   CookieManagerImpl *_impl;
 }
 
-RCT_EXPORT_MODULE();
++ (NSString *)moduleName
+{
+  return @"CookieManager";
+}
 
 - (instancetype)init
 {
@@ -27,17 +86,41 @@ RCT_EXPORT_MODULE();
   return self;
 }
 
+- (void)invalidate
+{
+  [_impl stopCookieChangeObserving];
+}
+
+- (void)startCookieChangeObserving
+{
+  __weak CookieManager *weakSelf = self;
+  [_impl startCookieChangeObserving:^(NSString *store) {
+    CookieManager *strongSelf = weakSelf;
+    if (strongSelf == nil) {
+      return;
+    }
+    [strongSelf emitOnCookieChange:@{ @"iosCookieStore" : store }];
+  }];
+}
+
+- (void)stopCookieChangeObserving
+{
+  [_impl stopCookieChangeObserving];
+}
+
 #pragma mark - Shared helpers
 
 - (void)handleSetWithUrlString:(NSString *)url
                         props:(NSDictionary *)props
-                     useWebKit:(NSNumber *)useWebKit
+                     useWebKit:(BOOL)useWebKit
+                       validate:(BOOL)validate
                        resolve:(RCTPromiseResolveBlock)resolve
                         reject:(RCTPromiseRejectBlock)reject
 {
   [_impl set:url
        cookie:props
-     useWebKit:[useWebKit boolValue]
+     useWebKit:useWebKit
+       validate:validate
        resolve:resolve
         reject:reject];
 }
@@ -134,8 +217,6 @@ RCT_EXPORT_MODULE();
                                          reject:reject];
 }
 
-#if RCT_NEW_ARCH_ENABLED
-
 static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieManager::Cookie &cookie) {
   NSMutableDictionary *dict = [NSMutableDictionary new];
   if (cookie.name() != nil) {
@@ -173,12 +254,18 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
 
 - (void)setCookie:(NSString *)url
            cookie:(JS::NativeCookieManager::Cookie &)cookie
-        useWebKit:(NSNumber *)useWebKit
+        useWebKit:(BOOL)useWebKit
+          validate:(BOOL)validate
           resolve:(RCTPromiseResolveBlock)resolve
            reject:(RCTPromiseRejectBlock)reject
 {
   NSDictionary *props = CookieManagerPropsFromSpecCookie(cookie);
-  [self handleSetWithUrlString:url props:props useWebKit:useWebKit resolve:resolve reject:reject];
+  [self handleSetWithUrlString:url
+                         props:props
+                      useWebKit:useWebKit
+                        validate:validate
+                         resolve:resolve
+                          reject:reject];
 }
 
 - (void)setFromResponse:(NSString *)url
@@ -276,127 +363,5 @@ static NSDictionary *_Nonnull CookieManagerPropsFromSpecCookie(JS::NativeCookieM
 {
     return std::make_shared<facebook::react::NativeCookieManagerSpecJSI>(params);
 }
-
-#else
-
-RCT_EXPORT_METHOD(setCookie
-                  : (NSString *)url cookie
-                  : (NSDictionary *)props useWebKit
-                  : (BOOL)useWebKit resolve
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleSetWithUrlString:url
-                         props:props
-                      useWebKit:@(useWebKit)
-                        resolve:resolve
-                         reject:reject];
-}
-
-RCT_EXPORT_METHOD(setFromResponse
-                  : (NSString *)url cookie
-                  : (NSString *)cookie resolve
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleSetFromResponse:url cookie:cookie resolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(getFromResponse
-                  : (NSString *)url resolve
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleGetFromResponse:url resolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(getCookies
-                  : (NSString *)url useWebKit
-                  : (BOOL)useWebKit resolve
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleGet:url useWebKit:@(useWebKit) resolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(getAsArray
-                  : (NSString *)url useWebKit
-                  : (BOOL)useWebKit resolve
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleGetAsArray:url useWebKit:@(useWebKit) resolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(getCookieHeader
-                  : (NSString *)url useWebKit
-                  : (BOOL)useWebKit resolve
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleGetCookieHeader:url useWebKit:@(useWebKit) resolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(clearAll
-                  : (BOOL)useWebKit resolve
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleClearAll:@(useWebKit) resolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(clearAllStores
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleClearAllStores:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(clearByName
-                  : (NSString *)url name
-                  : (NSString *)name useWebKit
-                  : (BOOL)useWebKit resolve
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleClearByName:url name:name useWebKit:@(useWebKit) resolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(getAll
-                  : (BOOL)useWebKit resolve
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleGetAll:@(useWebKit) resolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(getAllAsArray
-                  : (BOOL)useWebKit resolve
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleGetAllAsArray:@(useWebKit) resolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(flush
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleFlushWithResolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(removeSessionCookies
-                  : (BOOL)iosClearFoundation iosClearWebKit
-                  : (BOOL)iosClearWebKit resolve
-                  : (RCTPromiseResolveBlock)resolve reject
-                  : (RCTPromiseRejectBlock)reject)
-{
-  [self handleRemoveSessionCookies:iosClearFoundation
-                        clearWebKit:iosClearWebKit
-                            resolve:resolve
-                             reject:reject];
-}
-
-#endif
 
 @end

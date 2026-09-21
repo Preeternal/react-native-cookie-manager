@@ -1,4 +1,8 @@
-import { TurboModuleRegistry, type TurboModule } from 'react-native';
+import {
+  TurboModuleRegistry,
+  type CodegenTypes,
+  type TurboModule,
+} from 'react-native';
 
 export type CookieSameSite = 'lax' | 'strict' | 'none';
 
@@ -17,8 +21,22 @@ export type Cookie = {
 
 export type Cookies = Record<string, Cookie>;
 
+export type IOSCookieStore = 'foundation' | 'webKit';
+
+export type CookieChangeEvent = {
+  iosCookieStore: IOSCookieStore;
+};
+
 export interface Spec extends TurboModule {
-  setCookie(url: string, cookie: Cookie, useWebKit?: boolean): Promise<boolean>;
+  readonly onCookieChange: CodegenTypes.EventEmitter<CookieChangeEvent>;
+  startCookieChangeObserving(): void;
+  stopCookieChangeObserving(): void;
+  setCookie(
+    url: string,
+    cookie: Cookie,
+    useWebKit: boolean,
+    validate: boolean
+  ): Promise<boolean>;
   setFromResponse(url: string, cookie: string): Promise<boolean>;
   getCookies(url: string, useWebKit?: boolean): Promise<Cookies>;
   getAsArray(url: string, useWebKit?: boolean): Promise<ReadonlyArray<Cookie>>;

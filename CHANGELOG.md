@@ -2,6 +2,58 @@
 
 ---
 
+## v7.0.0 (unreleased): New Architecture, SwiftPM, and iOS cookie-store events
+
+v7 requires the React Native New Architecture. It also adds Swift Package Manager support, iOS cookie change events, safer structured writes, named iOS store options, and stable error codes.
+
+### Added
+
+- Added iOS-only `addCookieChangeListener()` for Foundation and the default persistent WebKit store. The event identifies the changed store through `{ iosCookieStore }`; it is an invalidation signal, not a cookie delta or a one-event-per-mutation guarantee. Android reports `not_supported`.
+- Added named `{ iosCookieStore }` options to the store-selecting methods. Omitting the option continues to select Foundation on iOS; Android continues to use its single shared store.
+- Added structured validation for `set()` on both platforms. Input is validated before the native store is changed, while ordinary printable values remain accepted without extra encoding.
+- Added `CookieManagerError`, `CookieManagerErrorCode`, and `isCookieManagerError()`. Errors now use the same public codes on iOS, Android, and JavaScript: `invalid_url`, `invalid_cookie`, `domain_mismatch`, `not_supported`, `storage_error`, and `network_error`.
+- Added Swift Package Manager support for iOS. CocoaPods remains supported.
+- Added a podless React Native 0.87 SwiftPM example app.
+
+### Breaking changes
+
+- Removed the legacy iOS bridge. Projects that still require the Old Architecture must stay on `v6.x`.
+- Replaced the old method-specific rejection codes with the new shared error codes. Applications that inspect errors should migrate to `isCookieManagerError()` and `CookieManagerErrorCode`.
+- `set()` now rejects malformed structured cookies before mutation. A literal `;` in a structured cookie value is always rejected because Android cannot pass it to the WebView store without changing its meaning.
+
+### Compatibility
+
+- The development and example-app baseline is React Native `0.86.2`.
+- SwiftPM support is currently opt-in and verified with React Native `0.87.1`; CocoaPods remains the default production path.
+- Android now targets Java 17.
+- Existing positional `useWebKit` calls remain compatible throughout v7, but are deprecated in favor of `{ iosCookieStore }`.
+- URL acceptance remains delegated to the selected native store, as it was in v6.
+
+### Deprecated
+
+- Deprecated positional `useWebKit` arguments in favor of `{ iosCookieStore }`. They will remain available throughout v7.
+- Added the temporary `{ validate: false }` compatibility option for applications migrating unusual v6 cookie input. It does not disable structural safety checks and will be removed in the next major release.
+
+### Security
+
+- Hardened raw `setFromResponse()` imports against invalid host URLs and CR/LF/NUL header injection. Raw cookie attributes remain available through this API.
+
+### Tooling
+
+- Updated the project scaffold and development tooling.
+- Added CI coverage for the React Native 0.87 SwiftPM example.
+
+### Tests
+
+- Expanded automated coverage for the new APIs and verified that rejected writes leave native stores unchanged.
+- Both CocoaPods and SwiftPM example builds are covered by CI.
+
+### Documentation
+
+- Updated the README and both example apps for v7.
+
+---
+
 ## v6.4.1: AGP 9 Kotlin compatibility fix
 
 ### Fixes

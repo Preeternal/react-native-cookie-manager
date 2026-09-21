@@ -35,16 +35,23 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
 
   override fun getName(): String = NAME
 
+  override fun startCookieChangeObserving() {
+    rejectCookieChangeObservation()
+  }
+
+  override fun stopCookieChangeObserving() = Unit
+
   override fun setCookie(
     url: String,
     cookie: ReadableMap,
-    useWebKit: Boolean?,
+    useWebKit: Boolean,
+    validate: Boolean,
     promise: Promise
   ) {
     val cookieString = try {
-      serializeCookieForSet(makeCookieSetData(url, cookie))
+      serializeCookieForSet(makeCookieSetData(url, cookie, validate))
     } catch (e: Exception) {
-      promise.reject("cookie_set_error", e)
+      promise.reject(cookieManagerErrorCode(e, CookieManagerErrorCode.INVALID_COOKIE), e)
       return
     }
 
@@ -52,8 +59,21 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   }
 
   override fun setFromResponse(url: String, cookie: String, promise: Promise) {
-    if (cookie.isEmpty()) {
-      promise.reject("invalid_cookie_values", INVALID_COOKIE_VALUES)
+    val parsedUrl = try {
+      URL(url)
+    } catch (e: Exception) {
+      promise.reject(CookieManagerErrorCode.INVALID_URL.value, INVALID_URL_MISSING_HTTP, e)
+      return
+    }
+    if (parsedUrl.host.isEmpty()) {
+      promise.reject(CookieManagerErrorCode.INVALID_URL.value, INVALID_URL_MISSING_HTTP)
+      return
+    }
+
+    try {
+      validateRawSetCookieHeader(cookie)
+    } catch (e: Exception) {
+      promise.reject(CookieManagerErrorCode.INVALID_COOKIE.value, e)
       return
     }
 
@@ -62,40 +82,40 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
 
   override fun getCookies(url: String, useWebKit: Boolean?, promise: Promise) {
     if (url.isEmpty()) {
-      promise.reject("invalid_url", INVALID_URL_MISSING_HTTP)
+      promise.reject(CookieManagerErrorCode.INVALID_URL.value, INVALID_URL_MISSING_HTTP)
       return
     }
 
     try {
       promise.resolve(createCookieList(readCookies(url)))
     } catch (e: Exception) {
-      promise.reject("get_cookie_error", e)
+      promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, e)
     }
   }
 
   override fun getAsArray(url: String, useWebKit: Boolean?, promise: Promise) {
     if (url.isEmpty()) {
-      promise.reject("invalid_url", INVALID_URL_MISSING_HTTP)
+      promise.reject(CookieManagerErrorCode.INVALID_URL.value, INVALID_URL_MISSING_HTTP)
       return
     }
 
     try {
       promise.resolve(createCookieArray(readCookies(url)))
     } catch (e: Exception) {
-      promise.reject("get_cookie_error", e)
+      promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, e)
     }
   }
 
   override fun getCookieHeader(url: String, useWebKit: Boolean?, promise: Promise) {
     if (url.isEmpty()) {
-      promise.reject("invalid_url", INVALID_URL_MISSING_HTTP)
+      promise.reject(CookieManagerErrorCode.INVALID_URL.value, INVALID_URL_MISSING_HTTP)
       return
     }
 
     try {
       promise.resolve(readCookieHeader(url) { getCookieManager().getCookie(it) })
     } catch (e: Exception) {
-      promise.reject("get_cookie_header_error", e)
+      promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, e)
     }
   }
 
@@ -103,12 +123,12 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     val parsedUrl = try {
       URL(url)
     } catch (e: Exception) {
-      promise.reject("invalid_url", INVALID_URL_MISSING_HTTP, e)
+      promise.reject(CookieManagerErrorCode.INVALID_URL.value, INVALID_URL_MISSING_HTTP, e)
       return
     }
 
     if (parsedUrl.host.isEmpty() || !isHttpScheme(parsedUrl.protocol)) {
-      promise.reject("invalid_url", INVALID_URL_MISSING_HTTP)
+      promise.reject(CookieManagerErrorCode.INVALID_URL.value, INVALID_URL_MISSING_HTTP)
       return
     }
 
@@ -118,23 +138,23 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   }
 
   override fun getAll(useWebKit: Boolean?, promise: Promise) {
-    promise.reject("not_supported", GET_ALL_NOT_SUPPORTED)
+    promise.reject(CookieManagerErrorCode.NOT_SUPPORTED.value, GET_ALL_NOT_SUPPORTED)
   }
 
   override fun getAllAsArray(useWebKit: Boolean?, promise: Promise) {
-    promise.reject("not_supported", GET_ALL_NOT_SUPPORTED)
+    promise.reject(CookieManagerErrorCode.NOT_SUPPORTED.value, GET_ALL_NOT_SUPPORTED)
   }
 
   override fun clearByName(url: String, name: String, useWebKit: Boolean?, promise: Promise) {
     if (url.isEmpty()) {
-      promise.reject("invalid_url", INVALID_URL_MISSING_HTTP)
+      promise.reject(CookieManagerErrorCode.INVALID_URL.value, INVALID_URL_MISSING_HTTP)
       return
     }
 
     val cookieManager = try {
       getCookieManager()
     } catch (e: Exception) {
-      promise.reject("clear_by_name_error", e)
+      promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, e)
       return
     }
 
@@ -145,13 +165,13 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
         detailedReader = { CookieManagerCompat.getCookieInfo(cookieManager, url) }
       )
     } catch (e: Exception) {
-      promise.reject("clear_by_name_error", e)
+      promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, e)
       return
     }
 
     when (plan) {
       CookieDeletionPlan.Unsupported -> {
-        promise.reject("not_supported", CLEAR_BY_NAME_NOT_SUPPORTED)
+        promise.reject(CookieManagerErrorCode.NOT_SUPPORTED.value, CLEAR_BY_NAME_NOT_SUPPORTED)
       }
       is CookieDeletionPlan.Ready -> executeCookieDeletion(
         headers = plan.headers,
@@ -162,12 +182,12 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
         result.fold(
           onSuccess = { removed ->
             if (removed) {
-              flushAndResolve(cookieManager, true, promise, "clear_by_name_error")
+              flushAndResolve(cookieManager, true, promise)
             } else {
               promise.resolve(false)
             }
           },
-          onFailure = { error -> promise.reject("clear_by_name_error", error) }
+          onFailure = { error -> promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, error) }
         )
       }
     }
@@ -186,10 +206,10 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
       val cookieManager = getCookieManager()
       cookieManager.removeAllCookies { removed ->
         val result = if (returnRemovalResult) removed else true
-        flushAndResolve(cookieManager, result, promise, "clear_all_error")
+        flushAndResolve(cookieManager, result, promise)
       }
     } catch (e: Exception) {
-      promise.reject("clear_all_error", e)
+      promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, e)
     }
   }
 
@@ -198,7 +218,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
       getCookieManager().flush()
       promise.resolve(true)
     } catch (e: Exception) {
-      promise.reject("flush_error", e)
+      promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, e)
     }
   }
 
@@ -210,10 +230,10 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     try {
       val cookieManager = getCookieManager()
       cookieManager.removeSessionCookies {
-        flushAndResolve(cookieManager, it, promise, "remove_session_error")
+        flushAndResolve(cookieManager, it, promise)
       }
     } catch (e: Exception) {
-      promise.reject("remove_session_error", e)
+      promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, e)
     }
   }
 
@@ -221,25 +241,24 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     try {
       val cookieManager = getCookieManager()
       cookieManager.setCookie(url, cookieString) {
-        flushAndResolve(cookieManager, it, promise, "add_cookie_error")
+        flushAndResolve(cookieManager, it, promise)
       }
     } catch (e: Exception) {
-      promise.reject("add_cookie_error", e)
+      promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, e)
     }
   }
 
   private fun flushAndResolve(
     cookieManager: CookieManager,
     result: Any?,
-    promise: Promise,
-    errorCode: String
+    promise: Promise
   ) {
     PERSISTENCE_EXECUTOR.execute {
       try {
         cookieManager.flush()
         promise.resolve(result)
       } catch (e: Exception) {
-        promise.reject(errorCode, e)
+        promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, e)
       }
     }
   }
@@ -307,7 +326,15 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
           connection.connectTimeout = FETCH_TIMEOUT_MILLISECONDS
           connection.readTimeout = FETCH_TIMEOUT_MILLISECONDS
 
-          val requestCookieHeader = getCookieManager().getCookie(currentUrl.toString())
+          val requestCookieHeader = try {
+            getCookieManager().getCookie(currentUrl.toString())
+          } catch (e: Exception) {
+            throw CookieManagerException(
+              CookieManagerErrorCode.STORAGE_ERROR,
+              e.message ?: "Unable to read cookies for the request",
+              e
+            )
+          }
           if (!requestCookieHeader.isNullOrEmpty()) {
             connection.setRequestProperty("Cookie", requestCookieHeader)
           }
@@ -348,7 +375,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
         }
       }
     } catch (e: Exception) {
-      promise.reject("get_from_response_error", e)
+      promise.reject(cookieManagerErrorCode(e, CookieManagerErrorCode.NETWORK_ERROR), e)
     }
   }
 
@@ -405,9 +432,20 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     }
 
     if (!completionLatch.await(FETCH_TIMEOUT_MILLISECONDS.toLong(), TimeUnit.MILLISECONDS)) {
-      throw SocketTimeoutException("Timed out while storing redirect cookies")
+      val timeoutError = SocketTimeoutException("Timed out while storing redirect cookies")
+      throw CookieManagerException(
+        CookieManagerErrorCode.STORAGE_ERROR,
+        timeoutError.message ?: "Timed out while storing redirect cookies",
+        timeoutError
+      )
     }
-    storeError.get()?.let { throw it }
+    storeError.get()?.let { error ->
+      throw CookieManagerException(
+        CookieManagerErrorCode.STORAGE_ERROR,
+        error.message ?: "Unable to store response cookies",
+        error
+      )
+    }
   }
 
   private fun parseResponseCookies(headers: List<String>, responseUrl: URL): List<ResponseCookie> {
@@ -471,7 +509,7 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     try {
       val cookieManager = getCookieManager()
       if (headers.isEmpty()) {
-        flushAndResolve(cookieManager, result, promise, "get_from_response_error")
+        flushAndResolve(cookieManager, result, promise)
         return
       }
 
@@ -482,14 +520,14 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
           remaining -= 1
           if (remaining == 0 && !settled) {
             settled = true
-            flushAndResolve(cookieManager, result, promise, "get_from_response_error")
+            flushAndResolve(cookieManager, result, promise)
           }
         }
       }
     } catch (e: Exception) {
       if (!settled) {
         settled = true
-        promise.reject("get_from_response_error", e)
+        promise.reject(CookieManagerErrorCode.STORAGE_ERROR.value, e)
       }
     }
   }
@@ -529,39 +567,91 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   }
 
   @Throws(Exception::class)
-  private fun makeCookieSetData(url: String, cookie: ReadableMap): CookieSetData {
+  private fun makeCookieSetData(
+    url: String,
+    cookie: ReadableMap,
+    validate: Boolean
+  ): CookieSetData {
     val parsedUrl = try {
       URL(url)
     } catch (e: Exception) {
-      throw Exception(INVALID_URL_MISSING_HTTP)
+      throw CookieManagerException(
+        CookieManagerErrorCode.INVALID_URL,
+        INVALID_URL_MISSING_HTTP,
+        e
+      )
     }
 
     val topLevelDomain = parsedUrl.host
     if (isEmpty(topLevelDomain)) {
-      throw Exception(INVALID_URL_MISSING_HTTP)
+      throw CookieManagerException(
+        CookieManagerErrorCode.INVALID_URL,
+        INVALID_URL_MISSING_HTTP
+      )
     }
 
-    val validatedCookie = HttpCookie(cookie.getString("name"), cookie.getString("value"))
+    val name = cookie.getString("name")
+      ?: throw IllegalArgumentException("Missing cookie name")
+    val value = cookie.getString("value")
+      ?: throw IllegalArgumentException("Missing cookie value")
+    val rawDomain = if (cookie.hasKey("domain") && !cookie.isNull("domain")) {
+      cookie.getString("domain")
+    } else {
+      null
+    }
+    val rawPath = if (cookie.hasKey("path") && !cookie.isNull("path")) {
+      cookie.getString("path")
+    } else {
+      null
+    }
+    val version = if (cookie.hasKey("version") && !cookie.isNull("version")) {
+      cookie.getString("version")
+    } else {
+      null
+    }
+    val expires = if (cookie.hasKey("expires") && !cookie.isNull("expires")) {
+      cookie.getString("expires")
+    } else {
+      null
+    }
+    val rawSameSite = if (cookie.hasKey("sameSite") && !cookie.isNull("sameSite")) {
+      cookie.getString("sameSite")
+    } else {
+      null
+    }
+
+    validateStructuredCookieStrings(
+      StructuredCookieStrings(
+        name = name,
+        value = value,
+        domain = rawDomain,
+        path = rawPath,
+        version = version,
+        expires = expires,
+        sameSite = rawSameSite
+      ),
+      validate
+    )
+
+    val validatedCookie = HttpCookie(name, value)
     var domain: String?
-    if (cookie.hasKey("domain") && !isEmpty(cookie.getString("domain"))) {
-      domain = cookie.getString("domain")
+    if (!isEmpty(rawDomain)) {
+      domain = rawDomain
       if (domain != null && domain.startsWith(".")) {
         domain = domain.substring(1)
       }
 
       if (domain != null && !domainMatches(topLevelDomain, domain)) {
-        throw Exception(String.format(INVALID_DOMAINS, topLevelDomain, domain))
+        throw CookieManagerException(
+          CookieManagerErrorCode.DOMAIN_MISMATCH,
+          String.format(INVALID_DOMAINS, topLevelDomain, domain)
+        )
       }
     } else {
       domain = topLevelDomain
     }
 
-    val path =
-      if (cookie.hasKey("path") && !cookie.isNull("path")) {
-        cookie.getString("path")?.takeUnless { it.isEmpty() }
-      } else {
-        null
-      }
+    val path = rawPath?.takeUnless { it.isEmpty() }
     val secure = cookie.hasKey("secure") && cookie.getBoolean("secure")
     val httpOnly =
       HTTP_ONLY_SUPPORTED && cookie.hasKey("httpOnly") && cookie.getBoolean("httpOnly")
@@ -574,16 +664,15 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
     val expiresAtMillis =
       if (
         maxAgeSeconds == null &&
-        cookie.hasKey("expires") &&
-        !isEmpty(cookie.getString("expires"))
+        !isEmpty(expires)
       ) {
-        parseCookieExpires(cookie.getString("expires"))
+        parseCookieExpires(expires)
       } else {
         null
       }
     val sameSite =
-      if (cookie.hasKey("sameSite") && !cookie.isNull("sameSite")) {
-        parseCookieSameSite(cookie.getString("sameSite") ?: "")
+      if (rawSameSite != null) {
+        parseCookieSameSite(rawSameSite)
       } else {
         null
       }
@@ -664,7 +753,6 @@ class CookieManagerModule(reactContext: ReactApplicationContext) :
   companion object {
     private const val INVALID_URL_MISSING_HTTP =
       "Invalid URL: It may be missing a protocol (ex. http:// or https://)."
-    private const val INVALID_COOKIE_VALUES = "Unable to add cookie - invalid values"
     private const val GET_ALL_NOT_SUPPORTED = "Get all cookies not supported for Android (iOS only)"
     private const val CLEAR_BY_NAME_NOT_SUPPORTED =
       "clearByName requires GET_COOKIE_INFO support from the device's Android System WebView provider"
