@@ -70,36 +70,20 @@ final class CookieChangeObserverTests: XCTestCase {
     HTTPCookieStorage.shared.deleteCookie(cookie)
   }
 
-  func testWebKitMutationEmitsWebKitInvalidation() throws {
-    let observer = CookieChangeObserver()
-    let storeReady = expectation(description: "Default WebKit store readiness")
-    let event = expectation(description: "WebKit cookie change")
-    let mutation = expectation(description: "WebKit mutation")
-    let cleanup = expectation(description: "WebKit cleanup")
-    let cookie = try makeCookie(name: "webkit-\(UUID().uuidString)")
+  func testWebKitCallbackEmitsWebKitInvalidationUntilStopped() {
+    let observer = SystemCookieChangeObserver()
+    let store = WKWebsiteDataStore.default().httpCookieStore
+    var receivedStores: [CookieChangeStore] = []
 
-    // A headless simulator test may need several seconds to start WebKit's
-    // networking process. Warm the store before testing observer delivery.
-    let webView = WKWebView(frame: .zero)
-    let store = webView.configuration.websiteDataStore.httpCookieStore
+    observer.start { receivedStores.append($0) }
+    observer.cookiesDidChange(in: store)
 
-    store.getAllCookies { _ in storeReady.fulfill() }
-    wait(for: [storeReady], timeout: 30)
+    XCTAssertEqual(receivedStores, [.webKit])
 
-    observer.start { changedStore in
-      if changedStore == .webKit {
-        event.fulfill()
-      }
-    }
-    DispatchQueue.main.async {
-      store.setCookie(cookie) { mutation.fulfill() }
-    }
-
-    wait(for: [mutation, event], timeout: 5)
     observer.stop()
-    store.delete(cookie) { cleanup.fulfill() }
-    wait(for: [cleanup], timeout: 5)
-    withExtendedLifetime(webView) {}
+    observer.cookiesDidChange(in: store)
+
+    XCTAssertEqual(receivedStores, [.webKit])
   }
 
   private func makeCookie(name: String) throws -> HTTPCookie {

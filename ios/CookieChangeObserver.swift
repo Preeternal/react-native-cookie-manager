@@ -42,7 +42,7 @@ final class CookieChangeObservationLifecycle {
   }
 }
 
-private final class SystemCookieChangeObserver: NSObject, WKHTTPCookieStoreObserver {
+final class SystemCookieChangeObserver: NSObject, WKHTTPCookieStoreObserver {
   typealias Handler = CookieChangeObservationLifecycle.Handler
 
   private var foundationToken: NSObjectProtocol?
