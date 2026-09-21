@@ -72,11 +72,19 @@ final class CookieChangeObserverTests: XCTestCase {
 
   func testWebKitMutationEmitsWebKitInvalidation() throws {
     let observer = CookieChangeObserver()
+    let storeReady = expectation(description: "Default WebKit store readiness")
     let event = expectation(description: "WebKit cookie change")
     let mutation = expectation(description: "WebKit mutation")
     let cleanup = expectation(description: "WebKit cleanup")
     let cookie = try makeCookie(name: "webkit-\(UUID().uuidString)")
-    let store = WKWebsiteDataStore.default().httpCookieStore
+
+    // A headless simulator test may need several seconds to start WebKit's
+    // networking process. Warm the store before testing observer delivery.
+    let webView = WKWebView(frame: .zero)
+    let store = webView.configuration.websiteDataStore.httpCookieStore
+
+    store.getAllCookies { _ in storeReady.fulfill() }
+    wait(for: [storeReady], timeout: 30)
 
     observer.start { changedStore in
       if changedStore == .webKit {
@@ -91,6 +99,7 @@ final class CookieChangeObserverTests: XCTestCase {
     observer.stop()
     store.delete(cookie) { cleanup.fulfill() }
     wait(for: [cleanup], timeout: 5)
+    withExtendedLifetime(webView) {}
   }
 
   private func makeCookie(name: String) throws -> HTTPCookie {
