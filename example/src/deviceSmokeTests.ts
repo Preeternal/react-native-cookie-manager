@@ -326,43 +326,63 @@ export const runDeviceSmokeTests = async (): Promise<DeviceSmokeReport> => {
     });
   }
 
-  await run(
-    'set(): strict validation and v6 compatibility escape hatch',
-    async () => {
-      const legacyCookie: Cookie = {
-        name: LEGACY_VALIDATION_COOKIE,
-        value: nonce,
-        domain: TEST_DOMAIN,
-        path: '/',
-        secure: true,
-        expires: 'not-a-date',
-      };
+  for (const store of stores) {
+    await run(
+      `${store.label}: strict validation is mutation-free`,
+      async () => {
+        const legacyCookie: Cookie = {
+          name: LEGACY_VALIDATION_COOKIE,
+          value: `${nonce}_${store.useWebKit ? 'webkit' : 'shared'}`,
+          domain: TEST_DOMAIN,
+          path: '/',
+          secure: true,
+          expires: 'not-a-date',
+        };
 
-      try {
-        await CookieManager.set(TEST_URL, legacyCookie);
-        throw new Error('Default validation accepted an invalid expires value');
-      } catch (error) {
+        try {
+          await CookieManager.set(TEST_URL, legacyCookie, {
+            iosCookieStore: store.iosCookieStore,
+          });
+          throw new Error(
+            'Default validation accepted an invalid expires value'
+          );
+        } catch (error) {
+          assert(
+            isCookieManagerError(error) && error.code === 'invalid_cookie',
+            `Expected invalid_cookie, got ${describeError(error)}`
+          );
+        }
+
+        const cookiesAfterRejection = await CookieManager.getAsArray(TEST_URL, {
+          iosCookieStore: store.iosCookieStore,
+        });
         assert(
-          isCookieManagerError(error) && error.code === 'invalid_cookie',
-          `Expected invalid_cookie, got ${describeError(error)}`
+          cookiesAfterRejection.every(
+            (cookie) => cookie.name !== LEGACY_VALIDATION_COOKIE
+          ),
+          'Rejected structured input mutated the native store'
+        );
+
+        const stored = await CookieManager.set(TEST_URL, legacyCookie, {
+          iosCookieStore: store.iosCookieStore,
+          validate: false,
+        });
+        assert(stored, 'validate: false compatibility write returned false');
+
+        const cookies = await CookieManager.getAsArray(TEST_URL, {
+          iosCookieStore: store.iosCookieStore,
+        });
+        assert(
+          cookies.some(
+            (cookie) =>
+              cookie.name === LEGACY_VALIDATION_COOKIE &&
+              cookie.value === legacyCookie.value
+          ),
+          'Compatibility write was not returned from the native store'
         );
       }
-
-      const stored = await CookieManager.set(TEST_URL, legacyCookie, {
-        validate: false,
-      });
-      assert(stored, 'validate: false compatibility write returned false');
-
-      const cookies = await CookieManager.getAsArray(TEST_URL);
-      assert(
-        cookies.some(
-          (cookie) =>
-            cookie.name === LEGACY_VALIDATION_COOKIE && cookie.value === nonce
-        ),
-        'Compatibility write was not returned from the native store'
-      );
-    }
-  );
+    );
+  }
 
   await run('setFromResponse()', async () => {
     const stored = await CookieManager.setFromResponse(

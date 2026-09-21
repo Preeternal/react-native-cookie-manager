@@ -143,15 +143,30 @@ describe('removeSessionCookies', () => {
 
     await CookieManager.removeSessionCookies({ iosCookieStore: 'webKit' });
     expect(mockRemoveSessionCookies).toHaveBeenLastCalledWith(false, true);
+
+    await CookieManager.removeSessionCookies({ iosCookieStore: 'both' });
+    expect(mockRemoveSessionCookies).toHaveBeenLastCalledWith(true, true);
   });
 
-  it('rejects unknown store values', async () => {
+  it('rejects unknown store values with a stable code', async () => {
     await expect(
       CookieManager.removeSessionCookies({ iosCookieStore: 'invalid' as never })
-    ).rejects.toThrow(
-      'iosCookieStore must be "foundation", "webKit", or "both"'
-    );
+    ).rejects.toMatchObject({
+      code: 'invalid_cookie',
+      message: 'iosCookieStore must be "foundation", "webKit", or "both"',
+    });
+    expect(mockRemoveSessionCookies).not.toHaveBeenCalled();
   });
+
+  it.each([null, true, 'webKit', []])(
+    'rejects non-object runtime options with a stable code',
+    async (options) => {
+      await expect(
+        CookieManager.removeSessionCookies(options as never)
+      ).rejects.toMatchObject({ code: 'invalid_cookie' });
+      expect(mockRemoveSessionCookies).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe('set', () => {
@@ -313,4 +328,15 @@ describe('iOS cookie store options', () => {
 
     expect(mockGetCookies).not.toHaveBeenCalled();
   });
+
+  it.each([null, 'webKit', []])(
+    'rejects non-object selectors before reaching native code',
+    async (options) => {
+      await expect(
+        CookieManager.get('https://example.com', options as never)
+      ).rejects.toMatchObject({ code: 'invalid_cookie' });
+
+      expect(mockGetCookies).not.toHaveBeenCalled();
+    }
+  );
 });
